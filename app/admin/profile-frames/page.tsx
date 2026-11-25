@@ -23,8 +23,6 @@ export default async function AdminProfileFramesPage() {
     }
 
     return (
-        <main className="mx-auto max-w-4xl px-4 py-8">
-            <AdminFrameManager initialFrames={frames ?? []} initialEffects={effects ?? []} />
-        </main>
+        <AdminFrameManager initialFrames={frames ?? []} initialEffects={effects ?? []} />
     )
 }

@@ -10,28 +10,27 @@ import {
   REJECTED_REASON_MAX,
 } from '@/lib/members/memberInput'
 import { resolveAvatarUrl } from '@/lib/members/avatar'
+import EmptyState from '@/app/components/ui/EmptyState'
+import {
+  ALERT, BADGE, BTN_DANGER, BTN_NEUTRAL, BTN_PRIMARY, BTN_SM_DANGER, BTN_SM_GHOST, BTN_SM_PRIMARY, BTN_SM_WARN,
+  CARD, H2, INPUT, LABEL, PILL, PILL_ACTIVE,
+} from '@/lib/ui/styles'
+import AdminPageHeader from '../../_components/AdminPageHeader'
+import AdminStat from '../../_components/AdminStat'
 
 function Field({
                  label, hint, children,
                }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
       <div className="space-y-1.5">
-        <label className="block text-xs font-black text-muted tracking-widest uppercase">
-          {label}
-        </label>
+        <label className={LABEL}>{label}</label>
         {children}
-        {hint && <p className="text-[11px] text-faint">{hint}</p>}
+        {hint && <p className="text-[11px] text-subtle">{hint}</p>}
       </div>
   )
 }
 
-const inputCls = `
-  w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
-  bg-surface-2 border border-line
-  placeholder:text-faint
-  focus:outline-none focus:border-brand/50 focus:bg-brand/5
-  transition-all duration-200
-`
+const inputCls = INPUT
 
 type MemberListItem = {
   id: string
@@ -82,9 +81,9 @@ function MemberAvatar({ member }: { member: MemberListItem }) {
 type Tab = 'pending' | 'all'
 
 const STATUS_BADGE: Record<MemberStatus, { label: string; cls: string }> = {
-  pending: { label: '대기', cls: 'bg-warn/10 text-warn-ink border-warn/30' },
-  approved: { label: '승인', cls: 'bg-ok/10 text-ok-ink border-ok/30' },
-  rejected: { label: '거절', cls: 'bg-danger/10 text-danger-ink border-danger/30' },
+  pending: { label: '대기', cls: BADGE.warn },
+  approved: { label: '승인', cls: BADGE.ok },
+  rejected: { label: '거절', cls: BADGE.danger },
 }
 
 const DELETE_WARNING = [
@@ -242,6 +241,13 @@ export default function AdminMemberControlPage() {
   }
 
   const pendingCount = useMemo(() => members.filter((m) => m.status === 'pending').length, [members])
+  const statusCounts = useMemo(
+      () => ({
+        approved: members.filter((m) => m.status === 'approved').length,
+        rejected: members.filter((m) => m.status === 'rejected').length,
+      }),
+      [members],
+  )
 
   const visibleMembers = useMemo(() => {
     const base = tab === 'pending' ? members.filter((m) => m.status === 'pending') : members
@@ -251,202 +257,207 @@ export default function AdminMemberControlPage() {
   }, [members, tab, searchTerm])
 
   return (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div>
+        <AdminPageHeader
+            kicker="Members"
+            title="멤버 관리"
+            description="가입 신청을 승인·거절하고, 멤버를 직접 등록·수정·추방합니다."
+        />
 
-        {/* ── 좌측: 등록/수정 폼 ── */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="sticky top-24">
-            <div className="mb-6">
-              <h1 className="text-2xl font-black text-fg tracking-tight mb-1">
-                {editingId ? '멤버 정보 수정' : '새 멤버 등록'}
-              </h1>
-              <p className="text-sm text-subtle">
-                {editingId ? '기존 멤버의 라이엇 계정 정보를 변경합니다' : '관리자가 등록한 멤버는 즉시 승인 상태가 됩니다'}
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-surface border border-line space-y-5">
-              <Field label="단톡방 아이디">
-                <input type="text" value={memberName} maxLength={MEMBER_NAME_MAX}
-                       onChange={(e) => setMemberName(e.target.value)} className={inputCls} required />
-              </Field>
-              <Field label="라이엇 게임명">
-                <input type="text" value={riotGameName} maxLength={RIOT_GAME_NAME_MAX}
-                       onChange={(e) => setRiotGameName(e.target.value)} className={inputCls} required />
-              </Field>
-              <Field label="태그라인" hint="영문/숫자 2~10자">
-                <div className="flex items-center gap-2">
-                  <span className="text-subtle font-bold">#</span>
-                  <input type="text" value={riotTagline} maxLength={RIOT_TAGLINE_MAX}
-                         onChange={(e) => setRiotTagline(e.target.value)} className={inputCls} required />
-                </div>
-              </Field>
-
-              <div className="pt-2 flex flex-col gap-2">
-                <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-sm font-black text-white bg-brand hover:bg-brand/90 shadow-lg shadow-brand/20 disabled:opacity-50 transition-all">
-                  {loading ? '처리 중...' : editingId ? '정보 수정하기' : '멤버 등록하기'}
-                </button>
-                {editingId && (
-                    <button type="button" onClick={resetForm} className="w-full py-3 rounded-xl text-sm font-bold text-muted hover:text-fg transition-colors">
-                      취소하고 새로 등록하기
-                    </button>
-                )}
-              </div>
-            </form>
-
-            {message && <div className="mt-4 p-4 rounded-xl bg-ok/10 border border-ok/20 text-ok-ink text-xs font-bold">{message}</div>}
-            {error && <div className="mt-4 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger-ink text-xs font-bold">{error}</div>}
-          </div>
+        {/* ── 요약 ── */}
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <AdminStat label="전체 멤버" value={members.length} />
+          <AdminStat label="승인 대기" value={pendingCount} tone={pendingCount > 0 ? 'warn' : undefined} />
+          <AdminStat label="승인" value={statusCounts.approved} tone="ok" />
+          <AdminStat label="거절" value={statusCounts.rejected} tone={statusCounts.rejected > 0 ? 'danger' : undefined} />
         </div>
 
-        {/* ── 우측: 탭 + 목록 ── */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex gap-2">
-              <button
-                  onClick={() => setTab('pending')}
-                  className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
-                      tab === 'pending'
-                          ? 'bg-warn/15 text-warn-ink border border-warn/30'
-                          : 'text-subtle hover:text-muted border border-transparent'
-                  }`}
-              >
-                대기 중 ({pendingCount})
-              </button>
-              <button
-                  onClick={() => setTab('all')}
-                  className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
-                      tab === 'all'
-                          ? 'bg-brand/15 text-brand-ink border border-brand/30'
-                          : 'text-subtle hover:text-muted border border-transparent'
-                  }`}
-              >
-                전체 멤버 ({members.length})
-              </button>
-            </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-            <div className="relative">
-              <input
-                  type="text"
-                  placeholder="멤버 이름 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`${inputCls} !py-2 !pl-10 !w-64`}
-              />
-              <svg className="absolute left-3 top-2.5 w-4 h-4 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          {/* ── 좌측: 등록/수정 폼 ── */}
+          <div className="lg:col-span-4">
+            <div className="space-y-4 lg:sticky lg:top-8">
+              <form onSubmit={handleSubmit} className={`${CARD} space-y-5 p-6`}>
+                <div>
+                  <h2 className={H2}>{editingId ? '멤버 정보 수정' : '새 멤버 등록'}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-subtle">
+                    {editingId ? '기존 멤버의 라이엇 계정 정보를 변경합니다' : '관리자가 등록한 멤버는 즉시 승인 상태가 됩니다'}
+                  </p>
+                </div>
+                <Field label="단톡방 아이디">
+                  <input type="text" value={memberName} maxLength={MEMBER_NAME_MAX}
+                         onChange={(e) => setMemberName(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="라이엇 게임명">
+                  <input type="text" value={riotGameName} maxLength={RIOT_GAME_NAME_MAX}
+                         onChange={(e) => setRiotGameName(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="태그라인" hint="영문/숫자 2~10자">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-subtle">#</span>
+                    <input type="text" value={riotTagline} maxLength={RIOT_TAGLINE_MAX}
+                           onChange={(e) => setRiotTagline(e.target.value)} className={inputCls} required />
+                  </div>
+                </Field>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <button type="submit" disabled={loading} className={`${BTN_PRIMARY} w-full`}>
+                    {loading ? '처리 중...' : editingId ? '정보 수정하기' : '멤버 등록하기'}
+                  </button>
+                  {editingId && (
+                      <button type="button" onClick={resetForm} className={`${BTN_NEUTRAL} w-full`}>
+                        취소하고 새로 등록하기
+                      </button>
+                  )}
+                </div>
+              </form>
+
+              {message && <div role="status" className={ALERT.ok}>{message}</div>}
+              {error && <div role="alert" className={ALERT.error}>{error}</div>}
             </div>
           </div>
 
-          <div className="grid gap-3">
-            {visibleMembers.map((m) => (
-                <div key={m.id}
-                     className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-surface border border-line hover:border-line transition-all">
+          {/* ── 우측: 탭 + 목록 ── */}
+          <div className="space-y-4 lg:col-span-8">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div className="flex gap-2" role="tablist" aria-label="멤버 목록 구분">
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'pending'}
+                    onClick={() => setTab('pending')}
+                    className={`${tab === 'pending' ? PILL_ACTIVE : PILL} min-h-9 px-4 text-sm`}
+                >
+                  대기 중 <span className="ml-1.5 tabular-nums opacity-80">{pendingCount}</span>
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'all'}
+                    onClick={() => setTab('all')}
+                    className={`${tab === 'all' ? PILL_ACTIVE : PILL} min-h-9 px-4 text-sm`}
+                >
+                  전체 멤버 <span className="ml-1.5 tabular-nums opacity-80">{members.length}</span>
+                </button>
+              </div>
 
-                  <div className="flex items-center gap-4 min-w-0">
-                    <MemberAvatar member={m} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-fg font-bold truncate">{m.member_name}</span>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${STATUS_BADGE[m.status].cls}`}>
-                          {STATUS_BADGE[m.status].label}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
-                            m.login_linked
-                                ? 'bg-info/10 text-info-ink border-info/30'
-                                : 'bg-surface-2 text-subtle border-line'
-                        }`}>
-                          {m.login_linked ? '로그인 연결됨' : '미로그인'}
-                        </span>
-                        {!m.login_linked && m.discord_registered && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-brand/10 text-brand-ink border-brand/30">
-                              Discord 사전등록
-                            </span>
-                        )}
-                      </div>
-                      {m.riot_accounts.length > 0 ? (
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {m.riot_accounts.map((a, i) => (
-                                <span
-                                    key={a.id}
-                                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
-                                        i === 0
-                                            ? 'bg-brand/10 text-brand-ink border-brand/30'
-                                            : 'bg-surface-2 text-muted border-line'
-                                    }`}
-                                >
-                                  {i === 0 && <span className="mr-1 text-[10px] font-black">대표</span>}
-                                  {a.riot_game_name}
-                                  <span className="opacity-60">#{a.riot_tagline}</span>
-                                </span>
-                            ))}
-                          </div>
-                      ) : (
-                          <div className="text-xs text-subtle mt-0.5 truncate">
-                            {m.riot_game_name} <span className="text-faint">#{m.riot_tagline}</span>
-                          </div>
-                      )}
-                      {m.status === 'rejected' && m.rejected_reason && (
-                          <div className="text-[11px] text-danger-ink/80 mt-0.5 truncate">거절 사유: {m.rejected_reason}</div>
-                      )}
-                    </div>
-                  </div>
+              <div className="relative sm:w-64">
+                <input
+                    type="text"
+                    placeholder="멤버 이름 검색..."
+                    aria-label="멤버 검색"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`${inputCls} pl-10!`}
+                />
+                <svg className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {m.status !== 'approved' && (
-                        <button
-                            onClick={() => handleApprove(m)}
-                            disabled={busyId === m.id}
-                            className="px-4 py-2 rounded-lg text-xs font-bold text-ok-ink bg-ok/10 hover:bg-ok hover:text-white disabled:opacity-50 transition-all"
-                        >
-                          승인
-                        </button>
-                    )}
-                    {m.status === 'pending' && (
-                        <button
-                            onClick={() => handleReject(m)}
-                            disabled={busyId === m.id}
-                            className="px-4 py-2 rounded-lg text-xs font-bold text-warn-ink bg-warn/10 hover:bg-warn hover:text-white disabled:opacity-50 transition-all"
-                        >
-                          거절
-                        </button>
-                    )}
-                    <button
-                        onClick={() => handleEditStart(m)}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-brand-ink bg-brand/10 hover:bg-brand hover:text-white transition-all"
-                    >
-                      수정
-                    </button>
-                    <button
-                        onClick={() => { setDeleteTarget(m); setConfirmName('') }}
-                        disabled={busyId === m.id}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-danger-ink bg-danger/10 hover:bg-danger hover:text-white disabled:opacity-50 transition-all"
-                    >
-                      추방
-                    </button>
-                  </div>
-                </div>
-            ))}
-            {visibleMembers.length === 0 && (
-                <div className="text-center py-20 text-faint border-2 border-dashed border-line rounded-3xl">
-                  {tab === 'pending' ? '대기 중인 신청이 없습니다.' : '검색 결과가 없습니다.'}
-                </div>
+            {visibleMembers.length === 0 ? (
+                <EmptyState>{tab === 'pending' ? '대기 중인 신청이 없습니다.' : '검색 결과가 없습니다.'}</EmptyState>
+            ) : (
+                <ul className={`${CARD} divide-y divide-line overflow-hidden`}>
+                  {visibleMembers.map((m) => (
+                      <li key={m.id}
+                          className="flex flex-col justify-between gap-3 px-4 py-4 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:px-5">
+
+                        <div className="flex min-w-0 items-center gap-4">
+                          <MemberAvatar member={m} />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="mr-0.5 truncate font-bold text-fg">{m.member_name}</span>
+                              <span className={STATUS_BADGE[m.status].cls}>{STATUS_BADGE[m.status].label}</span>
+                              <span className={m.login_linked ? BADGE.info : BADGE.neutral}>
+                                {m.login_linked ? '로그인 연결됨' : '미로그인'}
+                              </span>
+                              {!m.login_linked && m.discord_registered && (
+                                  <span className={BADGE.brand}>Discord 사전등록</span>
+                              )}
+                            </div>
+                            {m.riot_accounts.length > 0 ? (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  {m.riot_accounts.map((a, i) => (
+                                      <span
+                                          key={a.id}
+                                          className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${
+                                              i === 0 ? 'bg-brand/12 text-brand-ink' : 'bg-surface-2 text-muted'
+                                          }`}
+                                      >
+                                        {i === 0 && <span className="mr-1 text-[10px] font-black">대표</span>}
+                                        {a.riot_game_name}
+                                        <span className="opacity-60">#{a.riot_tagline}</span>
+                                      </span>
+                                  ))}
+                                </div>
+                            ) : (
+                                <div className="mt-0.5 truncate text-xs text-muted">
+                                  {m.riot_game_name} <span className="text-subtle">#{m.riot_tagline}</span>
+                                </div>
+                            )}
+                            {m.status === 'rejected' && m.rejected_reason && (
+                                <div className="mt-1 truncate text-[11px] text-danger-ink">거절 사유: {m.rejected_reason}</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
+                          {m.status !== 'approved' && (
+                              <button
+                                  type="button"
+                                  onClick={() => handleApprove(m)}
+                                  disabled={busyId === m.id}
+                                  className={BTN_SM_PRIMARY}
+                              >
+                                승인
+                              </button>
+                          )}
+                          {m.status === 'pending' && (
+                              <button
+                                  type="button"
+                                  onClick={() => handleReject(m)}
+                                  disabled={busyId === m.id}
+                                  className={BTN_SM_WARN}
+                              >
+                                거절
+                              </button>
+                          )}
+                          <button
+                              type="button"
+                              onClick={() => handleEditStart(m)}
+                              className={BTN_SM_GHOST}
+                          >
+                            수정
+                          </button>
+                          <button
+                              type="button"
+                              onClick={() => { setDeleteTarget(m); setConfirmName('') }}
+                              disabled={busyId === m.id}
+                              className={BTN_SM_DANGER}
+                          >
+                            추방
+                          </button>
+                        </div>
+                      </li>
+                  ))}
+                </ul>
             )}
           </div>
         </div>
 
         {/* ── 추방 확인 모달 ── */}
         {deleteTarget && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-              <div className="w-full max-w-md rounded-2xl bg-panel border border-danger/30 p-6">
-                <h3 className="text-lg font-black text-fg">멤버 추방</h3>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-member-title">
+              <div className="w-full max-w-md rounded-3xl bg-panel p-6 shadow-[0_24px_64px_-28px_var(--color-shadow)]">
+                <h3 id="delete-member-title" className="text-lg font-black text-fg">멤버 추방</h3>
                 <p className="mt-2 text-sm text-muted">
                   <span className="font-bold text-fg">{deleteTarget.member_name}</span> 멤버를 완전히 삭제합니다.
-                  이 작업은 <span className="text-danger-ink font-bold">되돌릴 수 없습니다.</span>
+                  이 작업은 <span className="font-bold text-danger-ink">되돌릴 수 없습니다.</span>
                 </p>
 
-                <div className="mt-4 rounded-xl bg-danger/5 border border-danger/20 p-4">
-                  <div className="text-xs font-black text-danger-ink uppercase tracking-widest">함께 삭제되는 데이터</div>
-                  <ul className="mt-2 text-xs text-danger-ink/80 list-disc pl-5 space-y-1">
+                <div className="mt-4 rounded-2xl bg-danger/8 p-4">
+                  <div className="text-xs font-bold text-danger-ink">함께 삭제되는 데이터</div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-danger-ink">
                     {DELETE_WARNING.map((w) => <li key={w}>{w}</li>)}
                   </ul>
                   <div className="mt-3 text-[11px] text-muted">
@@ -455,7 +466,7 @@ export default function AdminMemberControlPage() {
                 </div>
 
                 <div className="mt-5 space-y-1.5">
-                  <label className="block text-xs font-black text-muted tracking-widest uppercase">
+                  <label className={LABEL}>
                     확인을 위해 멤버명을 입력하세요
                   </label>
                   <input
@@ -469,15 +480,17 @@ export default function AdminMemberControlPage() {
 
                 <div className="mt-5 flex gap-2">
                   <button
+                      type="button"
                       onClick={() => { setDeleteTarget(null); setConfirmName('') }}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-muted bg-surface hover:bg-surface-2 transition-all"
+                      className={`${BTN_NEUTRAL} flex-1`}
                   >
                     취소
                   </button>
                   <button
+                      type="button"
                       onClick={handleDeleteConfirm}
                       disabled={confirmName !== deleteTarget.member_name || busyId === deleteTarget.id}
-                      className="flex-1 py-3 rounded-xl text-sm font-black text-white bg-danger hover:bg-danger/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      className={`${BTN_DANGER} flex-1`}
                   >
                     {busyId === deleteTarget.id ? '삭제 중...' : '영구 삭제'}
                   </button>

@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from '@/app/components/Spinner'
 import type { MemberStatus } from '@/types/supabase'
 import { compareRank } from '@/lib/constants/tierOrder'
-import { ALERT, CARD, INPUT, KICKER } from '@/lib/ui/styles'
+import EmptyState from '@/app/components/ui/EmptyState'
+import { ALERT, BADGE, BTN_PRIMARY, BTN_SM_GHOST, CARD, INPUT, PILL, PILL_ACTIVE, TABLE, TD, TH, TR } from '@/lib/ui/styles'
+import AdminPageHeader from '../../_components/AdminPageHeader'
+import AdminStat from '../../_components/AdminStat'
 
 type MemberRow = {
   id: string
@@ -48,20 +51,20 @@ const TIER_BADGE: Record<string, { text: string; bg: string; dot: string }> = {
 }
 
 const STATUS_BADGE: Record<MemberStatus, { label: string; cls: string }> = {
-  pending:  { label: '대기', cls: 'bg-warn/10 text-warn-ink border-warn/30' },
-  approved: { label: '승인', cls: 'bg-ok/10 text-ok-ink border-ok/30' },
-  rejected: { label: '거절', cls: 'bg-danger/10 text-danger-ink border-danger/30' },
+  pending:  { label: '대기', cls: BADGE.warn },
+  approved: { label: '승인', cls: BADGE.ok },
+  rejected: { label: '거절', cls: BADGE.danger },
 }
 
 function TierBadge({
                      tier, rank, lp,
                    }: { tier: string | null; rank: string | null; lp: number | null }) {
-  if (!tier) return <span className="text-xs text-faint italic">Unranked</span>
+  if (!tier) return <span className="text-xs italic text-subtle">Unranked</span>
   const s = TIER_BADGE[tier.toUpperCase()] ?? {
-    text: 'text-subtle', bg: 'bg-surface-2 border border-line', dot: 'bg-faint',
+    text: 'text-subtle', bg: 'bg-surface-2', dot: 'bg-subtle',
   }
   return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${s.bg} ${s.text}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold whitespace-nowrap tabular-nums ${s.bg} ${s.text}`}>
         <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
         {tier} {rank ?? ''} · {lp ?? 0} LP
       </span>
@@ -70,21 +73,21 @@ function TierBadge({
 
 function StatusBadge({ status }: { status: MemberStatus }) {
   const s = STATUS_BADGE[status]
-  return <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${s.cls}`}>{s.label}</span>
+  return <span className={s.cls}>{s.label}</span>
 }
 
 function LoginBadge({ linked, discord }: { linked: boolean; discord: boolean }) {
   if (linked) {
-    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-info/10 text-info-ink border-info/30">로그인 연결됨</span>
+    return <span className={BADGE.info}>로그인 연결됨</span>
   }
   if (discord) {
-    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-discord/10 text-brand-ink border-discord/30">Discord 사전등록</span>
+    return <span className={BADGE.brand}>Discord 사전등록</span>
   }
-  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-surface-2 text-subtle border-line">미로그인</span>
+  return <span className={BADGE.neutral}>미로그인</span>
 }
 
 function SyncFailBadge() {
-  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-danger/10 text-danger-ink border-danger/30">동기화 실패</span>
+  return <span className={BADGE.danger}>동기화 실패</span>
 }
 
 function formatSyncTime(iso: string | null): string {
@@ -212,12 +215,14 @@ export default function AdminMemberSyncPage() {
           acc[m.status] += 1
           if (!m.login_linked) acc.unlinked += 1
           if (m.sync_status === 'failed') acc.failed += 1
+          if (m.sync_status === 'success') acc.success += 1
+          if (m.sync_status === 'running') acc.running += 1
           if (m.last_sync_finished_at && (!acc.lastSync || m.last_sync_finished_at > acc.lastSync)) {
             acc.lastSync = m.last_sync_finished_at
           }
           return acc
         },
-        { total: 0, pending: 0, approved: 0, rejected: 0, unlinked: 0, failed: 0, lastSync: null as string | null },
+        { total: 0, pending: 0, approved: 0, rejected: 0, unlinked: 0, failed: 0, success: 0, running: 0, lastSync: null as string | null },
     )
   }, [members])
 
@@ -258,44 +263,42 @@ export default function AdminMemberSyncPage() {
         </div>
     )
 
-  const selectCls = `${INPUT} !w-auto !py-2`
+  const selectCls = `${INPUT} w-auto! py-2!`
 
   return (
       <div>
-        {/* ── 헤더 ── */}
-        <div className="flex items-start justify-between mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-fg tracking-tight mb-1">멤버 랭크 현황</h1>
-            <p className="text-sm text-subtle">멤버들의 롤 랭크 정보를 조회·동기화합니다</p>
-          </div>
+        <AdminPageHeader
+            kicker="Sync"
+            title="멤버 동기화"
+            description="멤버들의 롤 솔로랭크 정보를 조회·동기화합니다."
+            action={
+              <button
+                  type="button"
+                  onClick={handleSyncAll}
+                  disabled={syncAllLoading || loading}
+                  aria-busy={syncAllLoading}
+                  className={BTN_PRIMARY}
+              >
+                {syncAllLoading ? (
+                    <><Spinner /> 전체 동기화 중...</>
+                ) : (
+                    <>
+                      <SyncIcon className="h-4 w-4" />
+                      전체 동기화
+                    </>
+                )}
+              </button>
+            }
+        />
 
-          <button
-              type="button"
-              onClick={handleSyncAll}
-              disabled={syncAllLoading || loading}
-              aria-busy={syncAllLoading}
-              className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors bg-brand/10 border border-brand/30 text-brand-ink hover:bg-brand/20 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {syncAllLoading ? (
-                <><Spinner /> 전체 동기화 중...</>
-            ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-                    <path d="M4 4v5h5M20 20v-5h-5M4.582 9a8 8 0 0115.356 4M19.418 15a8 8 0 01-15.356-4" />
-                  </svg>
-                  전체 동기화
-                </>
-            )}
-          </button>
-        </div>
-
-        {/* ── 상단 요약 바 ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          <SummaryCard label="총원" value={summary.total} />
-          <SummaryCard label="승인 / 대기 / 거절" value={`${summary.approved} / ${summary.pending} / ${summary.rejected}`} />
-          <SummaryCard label="로그인 미연결" value={summary.unlinked} tone={summary.unlinked > 0 ? 'warn' : undefined} />
-          <SummaryCard label="동기화 실패" value={summary.failed} tone={summary.failed > 0 ? 'danger' : undefined} />
-          <SummaryCard label="마지막 동기화" value={formatSyncTime(summary.lastSync)} className="col-span-2 sm:col-span-1 lg:col-span-2" nowrap />
+        {/* ── 상단 요약 ── */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <AdminStat label="총원" value={summary.total} hint={`승인 ${summary.approved} · 대기 ${summary.pending} · 거절 ${summary.rejected}`} />
+          <AdminStat label="동기화 성공" value={summary.success} tone="ok" />
+          <AdminStat label="동기화 실패" value={summary.failed} tone={summary.failed > 0 ? 'danger' : undefined} />
+          <AdminStat label="진행 중" value={summary.running} tone={summary.running > 0 ? 'brand' : undefined} />
+          <AdminStat label="로그인 미연결" value={summary.unlinked} tone={summary.unlinked > 0 ? 'warn' : undefined} />
+          <AdminStat label="마지막 동기화" value={formatSyncTime(summary.lastSync)} compact />
         </div>
 
         {/* ── 알림 배너 ── */}
@@ -310,17 +313,17 @@ export default function AdminMemberSyncPage() {
         )}
 
         {/* ── 검색 / 필터 / 정렬 ── */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <input
                 type="text"
                 placeholder="이름 · Riot ID 검색..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={`${INPUT} !pl-10`}
+                className={`${INPUT} pl-10!`}
                 aria-label="멤버 검색"
             />
-            <svg className="absolute left-3 top-3 w-4 h-4 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <svg className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -340,7 +343,7 @@ export default function AdminMemberSyncPage() {
               <option value="recent">최근 동기화순</option>
               <option value="name">이름순</option>
             </select>
-            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted bg-surface border border-line cursor-pointer select-none">
+            <label className={`${failedOnly ? PILL_ACTIVE : PILL} min-h-10 cursor-pointer select-none gap-2 px-4 text-sm`}>
               <input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} className="accent-danger" />
               실패만
             </label>
@@ -349,18 +352,15 @@ export default function AdminMemberSyncPage() {
 
         {/* ── 로딩 ── */}
         {loading && (
-            <div className="flex flex-col items-center justify-center py-24 gap-4 text-subtle">
+            <div className={`${CARD} flex flex-col items-center justify-center gap-4 py-24 text-subtle`}>
               <Spinner size={6} />
-              <p className="text-sm font-semibold tracking-wide opacity-80">멤버 목록 로딩 중...</p>
+              <p className="text-sm font-semibold tracking-wide">멤버 목록 로딩 중...</p>
             </div>
         )}
 
         {/* ── 빈 상태 ── */}
         {!loading && visible.length === 0 && (
-            <div className={`flex flex-col items-center justify-center py-20 border-dashed ${CARD}`}>
-              <p className="text-muted font-bold mb-1">표시할 멤버가 없습니다</p>
-              <p className="text-faint text-sm">검색어·필터를 조정하거나 [멤버 등록]에서 추가하세요</p>
-            </div>
+            <EmptyState hint="검색어·필터를 조정하거나 [멤버 관리]에서 추가하세요">표시할 멤버가 없습니다</EmptyState>
         )}
 
         {/* ── 데스크톱: 테이블 (md 이상) ── */}
@@ -368,17 +368,13 @@ export default function AdminMemberSyncPage() {
             <>
               <div className={`hidden md:block ${CARD} overflow-hidden`}>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse">
+                  <table className={TABLE}>
                     <thead>
-                    <tr className="bg-surface border-b border-line">
+                    <tr className="bg-surface-2/60">
                       {['단톡방 ID', 'Riot ID', '롤 솔로랭크', '최근 동기화'].map((label) => (
-                          <th key={label} className="px-4 py-3.5 text-left text-[10px] font-black text-subtle tracking-widest uppercase whitespace-nowrap">
-                            {label}
-                          </th>
+                          <th key={label} className={TH}>{label}</th>
                       ))}
-                      <th className="sticky right-0 bg-canvas border-l border-line px-4 py-3.5 text-right text-[10px] font-black text-subtle tracking-widest uppercase">
-                        동기화
-                      </th>
+                      <th className={`${TH} text-right`}>동기화</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -386,49 +382,48 @@ export default function AdminMemberSyncPage() {
                       const isSyncing = syncingId === m.id
                       const failed = m.sync_status === 'failed'
                       return (
-                          <tr key={m.id} className="group even:bg-surface hover:bg-surface-2 border-b border-line transition-colors">
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-fg text-sm truncate max-w-[140px]">{m.member_name}</span>
+                          <tr key={m.id} className={TR}>
+                            <td className={TD}>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="max-w-[140px] truncate text-sm font-bold text-fg">{m.member_name}</span>
                                 <StatusBadge status={m.status} />
                               </div>
-                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <LoginBadge linked={m.login_linked} discord={m.discord_registered} />
                                 {failed && <SyncFailBadge />}
                               </div>
                               {failed && m.last_sync_error && (
-                                  <div className="mt-1 text-[11px] text-danger-ink/80 truncate max-w-[220px]" title={m.last_sync_error}>
+                                  <div className="mt-1 max-w-[220px] truncate text-[11px] text-danger-ink" title={m.last_sync_error}>
                                     {m.last_sync_error}
                                   </div>
                               )}
                             </td>
-                            <td className="px-4 py-3.5">
-                              <span className="text-sm text-muted block truncate max-w-[200px]">
-                                {m.riot_game_name}<span className="text-faint">#{m.riot_tagline}</span>
+                            <td className={TD}>
+                              <span className="block max-w-[200px] truncate text-sm text-muted">
+                                {m.riot_game_name}<span className="text-subtle">#{m.riot_tagline}</span>
                               </span>
                             </td>
-                            <td className="px-4 py-3.5">
+                            <td className={TD}>
                               <TierBadge tier={m.lol_tier} rank={m.lol_rank} lp={m.lol_league_points} />
                             </td>
-                            <td className="px-4 py-3.5">
-                              <span className="text-xs text-subtle font-medium whitespace-nowrap">
+                            <td className={TD}>
+                              <span className="whitespace-nowrap text-xs font-medium tabular-nums text-subtle">
                                 {m.last_synced_at ? formatSyncTime(m.last_synced_at) : '-'}
                               </span>
                             </td>
-                            <td className="sticky right-0 bg-canvas border-l border-line px-4 py-3.5 text-right">
+                            <td className={`${TD} text-right`}>
                               <button
+                                  type="button"
                                   onClick={() => handleSync(m.id)}
                                   disabled={!!syncingId}
                                   aria-busy={isSyncing}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-brand/10 border border-brand/25 text-brand-ink hover:bg-brand/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                  className={BTN_SM_GHOST}
                               >
                                 {isSyncing ? (
                                     <><Spinner size={3} /> 동기화 중</>
                                 ) : (
                                     <>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-                                        <path d="M4 4v5h5M20 20v-5h-5M4.582 9a8 8 0 0115.356 4M19.418 15a8 8 0 01-15.356-4" />
-                                      </svg>
+                                      <SyncIcon className="h-3 w-3" />
                                       동기화
                                     </>
                                 )}
@@ -440,41 +435,40 @@ export default function AdminMemberSyncPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="px-5 py-3 border-t border-line bg-surface">
-                  <span className="text-xs text-faint font-medium">총 {visible.length}명</span>
+                <div className="border-t border-line px-5 py-3">
+                  <span className="text-xs font-medium tabular-nums text-subtle">총 {visible.length}명</span>
                 </div>
               </div>
 
               {/* ── 모바일: 카드 리스트 (md 미만) ── */}
-              <div className="md:hidden grid gap-3">
+              <div className="grid gap-3 md:hidden">
                 {visible.map((m) => {
                   const isSyncing = syncingId === m.id
                   const failed = m.sync_status === 'failed'
                   return (
-                      <div key={m.id} className={`${CARD} p-4 space-y-3`}>
+                      <div key={m.id} className={`${CARD} space-y-3 p-4`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-fg truncate">{m.member_name}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="truncate font-bold text-fg">{m.member_name}</span>
                               <StatusBadge status={m.status} />
                             </div>
-                            <div className="text-xs text-muted mt-1 truncate">
-                              {m.riot_game_name}<span className="text-faint">#{m.riot_tagline}</span>
+                            <div className="mt-1 truncate text-xs text-muted">
+                              {m.riot_game_name}<span className="text-subtle">#{m.riot_tagline}</span>
                             </div>
                           </div>
                           <button
+                              type="button"
                               onClick={() => handleSync(m.id)}
                               disabled={!!syncingId}
                               aria-busy={isSyncing}
-                              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-brand/10 border border-brand/25 text-brand-ink hover:bg-brand/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                              className={`${BTN_SM_GHOST} shrink-0`}
                           >
                             {isSyncing ? (
                                 <><Spinner size={3} /> 동기화 중</>
                             ) : (
                                 <>
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-                                    <path d="M4 4v5h5M20 20v-5h-5M4.582 9a8 8 0 0115.356 4M19.418 15a8 8 0 01-15.356-4" />
-                                  </svg>
+                                  <SyncIcon className="h-3 w-3" />
                                   동기화
                                 </>
                             )}
@@ -491,16 +485,16 @@ export default function AdminMemberSyncPage() {
                         </div>
 
                         {failed && m.last_sync_error && (
-                            <div className="text-[11px] text-danger-ink/80 break-words">{m.last_sync_error}</div>
+                            <div className="break-words text-[11px] text-danger-ink">{m.last_sync_error}</div>
                         )}
 
-                        <div className="text-[11px] text-faint">
+                        <div className="text-[11px] tabular-nums text-subtle">
                           최근 동기화: {m.last_synced_at ? formatSyncTime(m.last_synced_at) : '-'}
                         </div>
                       </div>
                   )
                 })}
-                <div className="text-xs text-faint font-medium px-1">총 {visible.length}명</div>
+                <div className="px-1 text-xs font-medium tabular-nums text-subtle">총 {visible.length}명</div>
               </div>
             </>
         )}
@@ -508,16 +502,10 @@ export default function AdminMemberSyncPage() {
   )
 }
 
-// ─── 요약 카드 ────────────────────────────────────────────────────────────────
-
-function SummaryCard({
-                       label, value, tone, className = '', nowrap = false,
-                     }: { label: string; value: string | number; tone?: 'warn' | 'danger'; className?: string; nowrap?: boolean }) {
-  const valueColor = tone === 'danger' ? 'text-danger-ink' : tone === 'warn' ? 'text-warn-ink' : 'text-fg'
+function SyncIcon({ className }: { className: string }) {
   return (
-      <div className={`${CARD} px-4 py-3 ${className}`}>
-        <div className={`${KICKER} text-subtle mb-1`}>{label}</div>
-        <div className={`text-lg font-black tracking-tight ${valueColor} ${nowrap ? 'whitespace-nowrap' : ''}`}>{value}</div>
-      </div>
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" aria-hidden>
+        <path d="M4 4v5h5M20 20v-5h-5M4.582 9a8 8 0 0115.356 4M19.418 15a8 8 0 01-15.356-4" />
+      </svg>
   )
 }

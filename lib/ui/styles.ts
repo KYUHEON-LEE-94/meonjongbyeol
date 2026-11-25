@@ -75,3 +75,34 @@ export const BADGE_DOT = 'inline-block h-2 w-2 shrink-0 rounded-full bg-accent'
 export const SIDE_CARD = `${CARD} p-5`
 export const H3 = 'text-sm font-bold tracking-tight text-fg'
 export const HINT = 'text-xs leading-relaxed text-subtle'
+
+// ─── 데이터 테이블·배지·작은 버튼 (관리자 화면 등 밀도 높은 화면용) ───────────────
+// 테이블은 CARD 안에 넣고 overflow-x-auto 래퍼로 감싼다.
+export const TABLE = 'w-full border-collapse text-sm'
+export const TH = 'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-subtle whitespace-nowrap'
+export const TD = 'px-4 py-3 align-middle'
+export const TR = 'border-t border-line transition-colors hover:bg-surface-2'
+
+// 상태 배지(역할 토큰). 흰 글자를 쓰지 않고 -ink 글자 + 옅은 필로만 표현한다.
+const BADGE_BASE = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold'
+export const BADGE = {
+  ok: `${BADGE_BASE} bg-ok/12 text-ok-ink`,
+  warn: `${BADGE_BASE} bg-warn/12 text-warn-ink`,
+  danger: `${BADGE_BASE} bg-danger/12 text-danger-ink`,
+  info: `${BADGE_BASE} bg-info/12 text-info-ink`,
+  brand: `${BADGE_BASE} bg-brand/12 text-brand-ink`,
+  neutral: `${BADGE_BASE} bg-surface-2 text-muted`,
+} as const
+
+// 행 단위 작은 버튼. BTN_BASE 와 min-h 가 달라 별도 베이스를 둔다(클래스 덮어쓰기 충돌 방지).
+const BTN_SM_BASE =
+  'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50 disabled:pointer-events-none'
+export const BTN_SM_PRIMARY = `${BTN_SM_BASE} bg-brand text-white hover:bg-brand/90`
+export const BTN_SM_GHOST = `${BTN_SM_BASE} bg-brand/12 text-brand-ink hover:bg-brand/20`
+export const BTN_SM_NEUTRAL = `${BTN_SM_BASE} bg-surface-2 text-fg hover:bg-line-strong`
+// 위험 행동(거절·추방·삭제)용 — danger 톤이지만 주 행동보다 덜 튀게 옅은 필만 쓴다.
+export const BTN_SM_DANGER = `${BTN_SM_BASE} bg-danger/10 text-danger-ink hover:bg-danger/20`
+export const BTN_SM_WARN = `${BTN_SM_BASE} bg-warn/10 text-warn-ink hover:bg-warn/20`
+
+// 폼 라벨.
+export const LABEL = 'block text-xs font-bold text-muted'

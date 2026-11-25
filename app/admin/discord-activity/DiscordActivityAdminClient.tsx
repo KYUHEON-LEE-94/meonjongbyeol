@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { formatDiscordVoiceDuration } from '@/lib/discord/activityHelpers'
+import EmptyState from '@/app/components/ui/EmptyState'
+import { ALERT, BADGE, CARD, PILL, PILL_ACTIVE, TABLE, TD, TH, TR } from '@/lib/ui/styles'
+import AdminPageHeader from '../_components/AdminPageHeader'
+import AdminStat from '../_components/AdminStat'
 
 type Row = {
   memberId: string | null
@@ -119,143 +123,135 @@ export default function DiscordActivityAdminClient({ today }: { today: string })
   ), [rows])
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-brand-ink">Discord</p>
-        <h1 className="mt-1 text-2xl font-black text-fg">디스코드 활동</h1>
-        <p className="mt-1 text-sm text-muted">음성 채널 체류 시간·활동일·메시지를 기간별로 집계합니다. (KST 기준)</p>
-      </div>
+    <div>
+      <AdminPageHeader
+        kicker="Discord"
+        title="디스코드 활동"
+        description="음성 채널 체류 시간·활동일·메시지를 기간별로 집계합니다. (KST 기준)"
+      />
 
-      {/* 기간 모드 */}
-      <div className="flex flex-wrap gap-1.5">
-        {(Object.keys(MODE_LABELS) as Mode[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setMode(key)}
-            className={`min-h-9 rounded-lg px-3 text-sm font-bold transition ${mode === key ? 'bg-brand text-white shadow-sm' : 'bg-surface-2 text-muted hover:text-fg'}`}
-          >
-            {MODE_LABELS[key]}
-          </button>
-        ))}
-      </div>
+      {/* 기간 모드 + 입력 */}
+      <div className={`${CARD} mb-6 space-y-4 p-5`}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="집계 기간 단위">
+          {(Object.keys(MODE_LABELS) as Mode[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={mode === key}
+              onClick={() => setMode(key)}
+              className={`${mode === key ? PILL_ACTIVE : PILL} min-h-9 px-4 text-sm`}
+            >
+              {MODE_LABELS[key]}
+            </button>
+          ))}
+        </div>
 
-      {/* 기간 입력 */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2 p-3">
-        {mode === 'day' && (
-          <DateField label="날짜" value={dayDate} max={today} onChange={setDayDate} />
-        )}
-        {mode === 'week' && (
-          <>
-            <DateField label="기준일" value={weekEnd} max={today} onChange={setWeekEnd} />
-            <span className="text-xs text-muted">→ 최근 7일 ({period.from} ~ {period.to})</span>
-          </>
-        )}
-        {mode === 'month' && (
-          <label className="flex items-center gap-2 text-xs font-bold text-muted">
-            월
-            <input type="month" value={month} max={today.slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className={INPUT} />
-          </label>
-        )}
-        {mode === 'range' && (
-          <>
-            <DateField label="시작" value={rangeFrom} max={today} onChange={setRangeFrom} />
-            <DateField label="종료" value={rangeTo} max={today} onChange={setRangeTo} />
-          </>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {mode === 'day' && (
+            <DateField label="날짜" value={dayDate} max={today} onChange={setDayDate} />
+          )}
+          {mode === 'week' && (
+            <>
+              <DateField label="기준일" value={weekEnd} max={today} onChange={setWeekEnd} />
+              <span className="text-xs tabular-nums text-muted">→ 최근 7일 ({period.from} ~ {period.to})</span>
+            </>
+          )}
+          {mode === 'month' && (
+            <label className="flex items-center gap-2 text-xs font-bold text-muted">
+              월
+              <input type="month" value={month} max={today.slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className={DATE_INPUT} />
+            </label>
+          )}
+          {mode === 'range' && (
+            <>
+              <DateField label="시작" value={rangeFrom} max={today} onChange={setRangeFrom} />
+              <DateField label="종료" value={rangeTo} max={today} onChange={setRangeTo} />
+            </>
+          )}
+        </div>
       </div>
 
       {/* 요약 */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <SummaryCard label="총 음성 시간" value={formatDiscordVoiceDuration(totals.voice)} />
-        <SummaryCard label="활동 멤버" value={`${totals.active}명`} />
-        <SummaryCard label="총 메시지" value={`${totals.messages.toLocaleString('ko-KR')}개`} />
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <AdminStat label="총 음성 시간" value={formatDiscordVoiceDuration(totals.voice)} compact />
+        <AdminStat label="활동 멤버" value={`${totals.active}명`} compact />
+        <AdminStat label="총 메시지" value={`${totals.messages.toLocaleString('ko-KR')}개`} compact />
       </div>
 
       {/* 결과 */}
       {loading ? (
-        <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-muted">불러오는 중…</div>
+        <EmptyState>불러오는 중…</EmptyState>
       ) : error ? (
-        <div className="rounded-xl border border-danger/30 bg-danger/5 p-6 text-center text-sm font-bold text-danger-ink">{error}</div>
+        <div role="alert" className={ALERT.error}>{error}</div>
       ) : data && data.status !== 'ready' ? (
-        <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-muted">
-          Discord 활동 API를 사용할 수 없습니다. 환경변수(DISCORD_ACTIVITY_*) 설정을 확인해 주세요.
-        </div>
+        <EmptyState hint="환경변수(DISCORD_ACTIVITY_*) 설정을 확인해 주세요.">Discord 활동 API를 사용할 수 없습니다.</EmptyState>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-muted">이 기간에 활동 기록이 없습니다.</div>
+        <EmptyState>이 기간에 활동 기록이 없습니다.</EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-line">
-                <th className="w-10 px-3 py-2.5 text-center text-[11px] font-black uppercase tracking-wide text-faint">#</th>
-                <th className="px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-wide text-faint">멤버</th>
-                {METRIC_COLUMNS.map((col) => {
-                  const activeCol = sortKey === col.key
-                  return (
-                    <th key={col.key} className="px-3 py-2.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => toggleSort(col.key)}
-                        aria-sort={activeCol ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}
-                        className={`ml-auto inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wide transition-colors ${activeCol ? 'text-brand-ink' : 'text-faint hover:text-fg'}`}
-                      >
-                        {col.label}
-                        <span className="text-[9px] leading-none">{activeCol ? (sortDir === 'desc' ? '▼' : '▲') : '↕'}</span>
-                      </button>
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((row, index) => (
-                <tr key={row.memberId ?? row.displayName + index}>
-                  <td className="px-3 py-2.5 text-center text-xs font-black tabular-nums text-subtle">{index + 1}</td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-line bg-surface-2">
-                        {row.avatarUrl ? <Image src={row.avatarUrl} alt="" fill sizes="32px" className="object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[11px] font-black text-muted">{row.displayName.slice(0, 1)}</span>}
-                      </div>
-                      <span className="min-w-0 truncate text-sm font-bold text-fg">{row.displayName}</span>
-                      {!row.linked && <span className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-faint">미연결</span>}
-                    </div>
-                  </td>
-                  {METRIC_COLUMNS.map((col) => (
-                    <td key={col.key} className={`px-3 py-2.5 text-right tabular-nums ${sortKey === col.key ? 'text-sm font-black text-brand-ink' : 'text-xs font-bold text-muted'}`}>
-                      {col.render(row)}
-                    </td>
-                  ))}
+        <div className={`${CARD} overflow-hidden`}>
+          <div className="overflow-x-auto">
+            <table className={`${TABLE} min-w-[560px]`}>
+              <thead>
+                <tr className="bg-surface-2/60">
+                  <th className={`${TH} w-12 text-center`}>#</th>
+                  <th className={TH}>멤버</th>
+                  {METRIC_COLUMNS.map((col) => {
+                    const activeCol = sortKey === col.key
+                    return (
+                      <th key={col.key} className={`${TH} text-right`} aria-sort={activeCol ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(col.key)}
+                          className={`ml-auto inline-flex items-center gap-1 rounded-md uppercase tracking-[0.12em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${activeCol ? 'text-brand-ink' : 'text-subtle hover:text-fg'}`}
+                        >
+                          {col.label}
+                          <span className="text-[9px] leading-none">{activeCol ? (sortDir === 'desc' ? '▼' : '▲') : '↕'}</span>
+                        </button>
+                      </th>
+                    )
+                  })}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={row.memberId ?? row.displayName + index} className={TR}>
+                    <td className={`${TD} text-center text-xs font-bold tabular-nums text-subtle`}>{index + 1}</td>
+                    <td className={TD}>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-surface-2">
+                          {row.avatarUrl ? <Image src={row.avatarUrl} alt="" fill sizes="32px" className="object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[11px] font-black text-muted">{row.displayName.slice(0, 1)}</span>}
+                        </div>
+                        <span className="min-w-0 truncate text-sm font-bold text-fg">{row.displayName}</span>
+                        {!row.linked && <span className={`${BADGE.neutral} shrink-0`}>미연결</span>}
+                      </div>
+                    </td>
+                    {METRIC_COLUMNS.map((col) => (
+                      <td key={col.key} className={`${TD} text-right tabular-nums ${sortKey === col.key ? 'text-sm font-black text-brand-ink' : 'text-xs font-bold text-muted'}`}>
+                        {col.render(row)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {data?.status === 'ready' && !loading && !error && (
-        <p className="text-right text-[11px] text-faint">집계 기간 {data.period.from} ~ {data.period.to}</p>
+        <p className="mt-3 text-right text-[11px] tabular-nums text-subtle">집계 기간 {data.period.from} ~ {data.period.to}</p>
       )}
     </div>
   )
 }
 
-const INPUT = 'min-h-9 rounded-lg border border-line bg-surface px-3 text-sm font-bold text-fg outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
+const DATE_INPUT = 'min-h-10 rounded-2xl bg-surface-2 px-3 text-sm font-bold text-fg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand/40'
 
 function DateField({ label, value, max, onChange }: { label: string; value: string; max?: string; onChange: (v: string) => void }) {
   return (
     <label className="flex items-center gap-2 text-xs font-bold text-muted">
       {label}
-      <input type="date" value={value} max={max} onChange={(e) => onChange(e.target.value)} className={INPUT} />
+      <input type="date" value={value} max={max} onChange={(e) => onChange(e.target.value)} className={DATE_INPUT} />
     </label>
-  )
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-line bg-surface px-3 py-3 sm:px-5 sm:py-4">
-      <p className="truncate text-[10px] font-bold text-muted sm:text-xs">{label}</p>
-      <p className="mt-1 truncate text-sm font-black tabular-nums text-fg sm:text-xl">{value}</p>
-    </div>
   )
 }

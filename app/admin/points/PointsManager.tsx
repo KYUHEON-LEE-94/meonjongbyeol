@@ -1,6 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import EmptyState from '@/app/components/ui/EmptyState'
+import { BADGE, BTN_DANGER, BTN_PRIMARY, CARD, H2, INPUT, LABEL, TABLE, TD, TH, TR } from '@/lib/ui/styles'
+import AdminPageHeader from '../_components/AdminPageHeader'
+import AdminStat from '../_components/AdminStat'
 
 type Member = { id:string; name:string; balance:number }
 type Ledger = { id:number; member_name:string; amount:number; reason:string; description:string|null; balance_after:number; created_at:string; actor_name:string }
@@ -14,12 +18,12 @@ const REASON_LABEL: Record<string,string> = {
   hall_of_fame: '명예의 전당',
 }
 const REASON_STYLE: Record<string,string> = {
-  daily_login: 'bg-info/10 text-info-ink',
-  custom_game_participation: 'bg-brand/10 text-brand-ink',
-  cosmetic_purchase: 'bg-danger/10 text-danger-ink',
-  shop_purchase: 'bg-danger/10 text-danger-ink',
-  admin_adjustment: 'bg-surface-2 text-subtle',
-  hall_of_fame: 'bg-warn/10 text-warn-ink',
+  daily_login: BADGE.info,
+  custom_game_participation: BADGE.brand,
+  cosmetic_purchase: BADGE.danger,
+  shop_purchase: BADGE.danger,
+  admin_adjustment: BADGE.neutral,
+  hall_of_fame: BADGE.warn,
 }
 const REASON_OPTIONS: [string,string][] = [['','전체 유형'],...Object.entries(REASON_LABEL)]
 
@@ -46,24 +50,36 @@ export default function PointsManager() {
       setLoading(false)
     }
   }
-  return <section className="space-y-6">
-    <div><h1 className="text-2xl font-black text-fg">포인트 관리</h1><p className="mt-1 text-sm text-muted">승인 멤버에게 운영 포인트를 지급하거나 차감합니다.</p></div>
-    <div className="grid gap-3 rounded-2xl border border-line bg-surface p-4 md:grid-cols-2">
-      <div className="inline-flex rounded-xl border border-line bg-canvas p-1 md:col-span-2">
-        <button type="button" onClick={()=>{setSign(1);setRequestId('')}} className={`flex-1 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${sign>0?'bg-brand text-white':'text-muted hover:text-fg'}`}>지급 (+)</button>
-        <button type="button" onClick={()=>{setSign(-1);setRequestId('')}} className={`flex-1 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${sign<0?'bg-danger text-white':'text-muted hover:text-fg'}`}>차감 (−)</button>
+  const totals=useMemo(()=>ledger.reduce((acc,row)=>{ if(row.amount>0)acc.plus+=row.amount; else acc.minus+=row.amount; return acc },{plus:0,minus:0}),[ledger])
+  const segBtn=(active:boolean,tone:'brand'|'danger')=>`flex-1 min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${active?(tone==='brand'?'bg-brand text-white':'bg-danger text-white'):'text-muted hover:text-fg'}`
+  return <section>
+    <AdminPageHeader kicker="Points" title="포인트 관리" description="승인 멤버에게 운영 포인트를 지급하거나 차감합니다." />
+
+    <div className="mb-6 grid grid-cols-3 gap-3">
+      <AdminStat label="표시 중인 내역" value={ledger.length.toLocaleString()} hint="최근 내역 기준" />
+      <AdminStat label="지급 합계" value={`+${totals.plus.toLocaleString()}P`} tone="brand" compact />
+      <AdminStat label="차감 합계" value={`${totals.minus.toLocaleString()}P`} tone={totals.minus<0?'danger':undefined} compact />
+    </div>
+
+    <div className={`${CARD} mb-8 grid gap-4 p-5 sm:p-6 md:grid-cols-2`}>
+      <div className="flex rounded-2xl bg-surface-2 p-1 md:col-span-2" role="group" aria-label="지급 / 차감 선택">
+        <button type="button" aria-pressed={sign>0} onClick={()=>{setSign(1);setRequestId('')}} className={segBtn(sign>0,'brand')}>지급 (+)</button>
+        <button type="button" aria-pressed={sign<0} onClick={()=>{setSign(-1);setRequestId('')}} className={segBtn(sign<0,'danger')}>차감 (−)</button>
       </div>
-      <input className="rounded-xl border border-line bg-canvas px-3 py-2 text-fg" placeholder="멤버 검색" value={q} onChange={e=>setQ(e.target.value)} />
-      <select className="rounded-xl border border-line bg-canvas px-3 py-2 text-fg" value={memberId} onChange={e=>{setMemberId(e.target.value);setRequestId('')}}><option value="">멤버 선택</option>{members.map(m=><option key={m.id} value={m.id}>{m.name} · {m.balance.toLocaleString()}P</option>)}</select>
-      <input className="rounded-xl border border-line bg-canvas px-3 py-2 text-fg" type="number" min={1} max={10000} placeholder="포인트 (1~10,000)" value={amount} onChange={e=>{setAmount(e.target.value);setRequestId('')}} />
-      <input className="rounded-xl border border-line bg-canvas px-3 py-2 text-fg" maxLength={200} placeholder={sign>0?'지급 사유':'차감 사유'} value={description} onChange={e=>{setDescription(e.target.value);setRequestId('')}} />
-      <button className={`rounded-xl px-4 py-2 font-bold text-white disabled:opacity-50 md:col-span-2 ${sign>0?'bg-brand':'bg-danger'}`} disabled={loading||!memberId||!amount||Number(amount)<1||!description.trim()} onClick={()=>void grant()}>{loading?(sign>0?'지급 중…':'차감 중…'):(sign>0?'포인트 지급':'포인트 차감')}</button>
-      {message&&<p className="text-sm text-muted md:col-span-2">{message}</p>}
+      <label className="space-y-1.5"><span className={LABEL}>멤버 검색</span><input className={INPUT} placeholder="이름으로 검색" value={q} onChange={e=>setQ(e.target.value)} /></label>
+      <label className="space-y-1.5"><span className={LABEL}>대상 멤버</span><select className={INPUT} value={memberId} onChange={e=>{setMemberId(e.target.value);setRequestId('')}}><option value="">멤버 선택</option>{members.map(m=><option key={m.id} value={m.id}>{m.name} · {m.balance.toLocaleString()}P</option>)}</select></label>
+      <label className="space-y-1.5"><span className={LABEL}>포인트</span><input className={`${INPUT} tabular-nums`} type="number" min={1} max={10000} placeholder="1 ~ 10,000" value={amount} onChange={e=>{setAmount(e.target.value);setRequestId('')}} /></label>
+      <label className="space-y-1.5"><span className={LABEL}>사유</span><input className={INPUT} maxLength={200} placeholder={sign>0?'지급 사유':'차감 사유'} value={description} onChange={e=>{setDescription(e.target.value);setRequestId('')}} /></label>
+      <button className={`${sign>0?BTN_PRIMARY:BTN_DANGER} md:col-span-2`} disabled={loading||!memberId||!amount||Number(amount)<1||!description.trim()} onClick={()=>void grant()}>{loading?(sign>0?'지급 중…':'차감 중…'):(sign>0?'포인트 지급':'포인트 차감')}</button>
+      {message&&<p role="status" className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted md:col-span-2">{message}</p>}
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-base font-black text-fg">포인트 내역 <span className="text-xs font-bold text-muted">지급·차감 전체 로그</span></h2>
-      <select className="rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg" value={reasonFilter} onChange={e=>setReasonFilter(e.target.value)}>{REASON_OPTIONS.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div><h2 className={H2}>포인트 내역</h2><p className="mt-1 text-xs text-subtle">지급·차감 전체 로그</p></div>
+      <select aria-label="유형 필터" className={`${INPUT} w-auto! py-2!`} value={reasonFilter} onChange={e=>setReasonFilter(e.target.value)}>{REASON_OPTIONS.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
     </div>
-    <div className="overflow-x-auto rounded-2xl border border-line"><table className="min-w-[720px] w-full text-sm"><thead className="bg-surface-2 text-muted"><tr><th className="p-3 text-left">멤버</th><th className="p-3 text-left">유형</th><th className="p-3 text-right">증감</th><th className="p-3 text-left">사유</th><th className="p-3 text-right">잔액</th><th className="p-3 text-left">처리</th><th className="p-3 text-left">일시</th></tr></thead><tbody>{ledger.length===0?<tr><td colSpan={7} className="p-6 text-center text-muted">내역이 없습니다.</td></tr>:ledger.map(row=><tr key={row.id} className="border-t border-line"><td className="p-3 font-bold text-fg">{row.member_name}</td><td className="p-3"><span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${REASON_STYLE[row.reason]??'bg-surface-2 text-muted'}`}>{REASON_LABEL[row.reason]??row.reason}</span></td><td className={`p-3 text-right font-bold ${row.amount>0?'text-brand-ink':'text-danger-ink'}`}>{row.amount>0?'+':''}{row.amount.toLocaleString()}P</td><td className="p-3 text-muted">{row.description}</td><td className="p-3 text-right text-fg">{row.balance_after.toLocaleString()}P</td><td className="p-3 text-muted">{row.actor_name}</td><td className="p-3 text-muted">{new Date(row.created_at).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div>
+    {ledger.length===0
+      ? <EmptyState>내역이 없습니다.</EmptyState>
+      : <div className={`${CARD} overflow-hidden`}><div className="overflow-x-auto"><table className={`${TABLE} min-w-[720px]`}><thead><tr className="bg-surface-2/60"><th className={TH}>멤버</th><th className={TH}>유형</th><th className={`${TH} text-right`}>증감</th><th className={TH}>사유</th><th className={`${TH} text-right`}>잔액</th><th className={TH}>처리</th><th className={TH}>일시</th></tr></thead><tbody>{ledger.map(row=><tr key={row.id} className={TR}><td className={`${TD} font-bold text-fg`}>{row.member_name}</td><td className={TD}><span className={REASON_STYLE[row.reason]??BADGE.neutral}>{REASON_LABEL[row.reason]??row.reason}</span></td><td className={`${TD} text-right font-bold tabular-nums ${row.amount>0?'text-brand-ink':'text-danger-ink'}`}>{row.amount>0?'+':''}{row.amount.toLocaleString()}P</td><td className={`${TD} text-muted`}>{row.description}</td><td className={`${TD} text-right tabular-nums text-fg`}>{row.balance_after.toLocaleString()}P</td><td className={`${TD} text-muted`}>{row.actor_name}</td><td className={`${TD} whitespace-nowrap text-xs tabular-nums text-subtle`}>{new Date(row.created_at).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div></div>}
   </section>
 }
