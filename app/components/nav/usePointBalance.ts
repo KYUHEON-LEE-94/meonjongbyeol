@@ -23,7 +23,7 @@ export function usePointBalance(isLoggedIn: boolean): PointBalanceState {
   const attendedRef = useRef(false)
 
   const loadBalance = useCallback(() => {
-    fetch('/api/me/points', { cache: 'no-store' })
+    fetch('/api/me/points?limit=5', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: unknown) => {
         const data = d as { balance?: unknown; ledger?: unknown } | null
