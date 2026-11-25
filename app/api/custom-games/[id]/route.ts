@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
 import { authorizeGameManage, canManageGame, getViewerMember } from '@/lib/customGames/authorize'
 import {
   fetchGame,
@@ -28,6 +29,17 @@ export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ id: string }> }
 
+type DetailMemberRow = {
+  id: string
+  member_name: string
+  riot_game_name: string | null
+  riot_tagline: string | null
+  lol_tier: string | null
+  lol_rank: string | null
+  lol_league_points: number | null
+  discord_avatar_url?: string | null
+}
+
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params
 
@@ -49,12 +61,15 @@ export async function GET(_req: Request, ctx: Ctx) {
   const memberIds = (participantRows ?? []).map((p) => p.member_id)
   const lookupIds = [...new Set([...memberIds, ...(game.host_member_id ? [game.host_member_id] : [])])]
 
-  const { data: memberRows } = await supabaseAdmin
-    .from('members')
-    .select('id, member_name, riot_game_name, riot_tagline, lol_tier, lol_rank, lol_league_points')
-    .in('id', lookupIds.length > 0 ? lookupIds : ['__none__'])
+  const { data: memberData } = await withAvatarColumn((cols) =>
+    supabaseAdmin
+      .from('members')
+      .select(`id, member_name, riot_game_name, riot_tagline, lol_tier, lol_rank, lol_league_points${cols}`)
+      .in('id', lookupIds.length > 0 ? lookupIds : ['__none__']),
+  )
+  const memberRows = (memberData ?? []) as DetailMemberRow[]
 
-  const memberMap = new Map((memberRows ?? []).map((m) => [m.id, m]))
+  const memberMap = new Map(memberRows.map((m) => [m.id, m]))
 
   // ── 게스트 참가자 ─────────────────────────────────────────────────
   // 레거시 롤체 내전의 게스트도 정원을 소비하므로(effectiveMemberCapacity) 조회는 유지한다.
@@ -87,6 +102,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       lol_tier: m?.lol_tier ?? null,
       lol_rank: m?.lol_rank ?? null,
       lol_league_points: m?.lol_league_points ?? null,
+      avatar_url: resolveAvatarUrl(m),
       joined_at: p.joined_at,
       position: index + 1,
       confirmed: isConfirmed,

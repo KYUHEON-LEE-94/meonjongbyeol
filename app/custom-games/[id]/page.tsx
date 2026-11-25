@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Spinner } from '@/app/components/Spinner'
+import MemberAvatar from '@/app/components/MemberAvatar'
 import Link from 'next/link'
 import SteamThumb from '@/app/steam/SteamThumb'
 import PushNotifyToggle from '@/app/components/PushNotifyToggle'
@@ -78,6 +79,7 @@ type MemberParticipant = {
   lol_tier: string | null
   lol_rank: string | null
   lol_league_points: number | null
+  avatar_url?: string | null
   joined_at: string
   position: number
   confirmed: boolean
@@ -105,6 +107,7 @@ type MemberOption = {
   lol_tier: string | null
   lol_rank: string | null
   lol_league_points: number | null
+  avatar_url?: string | null
 }
 
 // 대기 순번 표시는 waitlist_position 만 쓴다(position 은 확정 포함 전체 순번).
@@ -337,6 +340,7 @@ export default function CustomGameDetailPage() {
         rank: p.lol_rank,
         lp: p.lol_league_points,
         isHost: p.is_host,
+        avatarUrl: p.avatar_url ?? null,
       })),
     [confirmedList],
   )
@@ -577,12 +581,12 @@ export default function CustomGameDetailPage() {
       }`}
     >
       {tone === 'confirmed' ? (
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-sm font-black text-brand-ink"
-        >
-          {nameInitial(p.member_name)}
-        </span>
+        <MemberAvatar
+          src={p.avatar_url}
+          name={p.member_name}
+          size={40}
+          className="h-10 w-10 shrink-0 rounded-2xl bg-brand/15 text-sm font-black text-brand-ink"
+        />
       ) : (
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warn/15 font-display text-sm font-bold tabular-nums text-warn-ink"
@@ -866,8 +870,13 @@ export default function CustomGameDetailPage() {
                     <ul className="mt-5 grid grid-cols-5 gap-x-2 gap-y-4 sm:grid-cols-10" aria-label="좌석">
                       {confirmedList.map((p) => (
                         <li key={p.id} className="flex min-w-0 flex-col items-center gap-1.5" title={p.member_name}>
-                          <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-brand/15 text-sm font-black text-brand-ink ring-2 ring-brand/30">
-                            {nameInitial(p.member_name)}
+                          <span className="relative flex h-11 w-11 rounded-full ring-2 ring-brand/30">
+                            <MemberAvatar
+                              src={p.avatar_url}
+                              name={p.member_name}
+                              size={44}
+                              className="h-full w-full rounded-full bg-brand/15 text-sm font-black text-brand-ink"
+                            />
                             {p.is_host && (
                               <span
                                 className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white"
@@ -969,12 +978,12 @@ export default function CustomGameDetailPage() {
                                       </svg>
                                     )}
                                   </span>
-                                  <span
-                                    aria-hidden="true"
-                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-xs font-black text-brand-ink"
-                                  >
-                                    {nameInitial(m.member_name)}
-                                  </span>
+                                  <MemberAvatar
+                                    src={m.avatar_url}
+                                    name={m.member_name}
+                                    size={32}
+                                    className="h-8 w-8 shrink-0 rounded-xl bg-brand/15 text-xs font-black text-brand-ink"
+                                  />
                                   <span className="min-w-0">
                                     <span className="block text-sm font-bold text-fg leading-tight truncate">{m.member_name}</span>
                                     <span className="block text-xs text-subtle truncate">
@@ -1109,10 +1118,12 @@ export default function CustomGameDetailPage() {
                                   <div className="flex flex-col gap-2">
                                     {rows.length === 0 && <p className="text-xs text-subtle">미배정</p>}
                                     {rows.map((t, i) => {
+                                      const teamMember = t.member_id
+                                        ? confirmedList.find((p) => p.member_id === t.member_id)
+                                          ?? waitlist.find((p) => p.member_id === t.member_id)
+                                        : undefined
                                       const name = t.member_id
-                                        ? confirmedList.find((p) => p.member_id === t.member_id)?.member_name
-                                          ?? waitlist.find((p) => p.member_id === t.member_id)?.member_name
-                                          ?? '알 수 없음'
+                                        ? teamMember?.member_name ?? '알 수 없음'
                                         : t.guest_name ?? '알 수 없음'
                                       return (
                                         <div key={`${t.member_id ?? t.guest_name}-${t.position ?? ''}`} className="flex items-center gap-2">
@@ -1120,14 +1131,21 @@ export default function CustomGameDetailPage() {
                                             {isRift ? positionLabel(t.position) : `${i + 1}`}
                                           </span>
                                           <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-surface-raised px-2 py-1.5 ring-1 ring-line">
-                                            <span
-                                              aria-hidden="true"
-                                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
-                                                t.member_id ? 'bg-brand/15 text-brand-ink' : 'bg-warn/15 text-warn-ink'
-                                              }`}
-                                            >
-                                              {nameInitial(name)}
-                                            </span>
+                                            {t.member_id ? (
+                                              <MemberAvatar
+                                                src={teamMember?.avatar_url}
+                                                name={name}
+                                                size={28}
+                                                className="h-7 w-7 shrink-0 rounded-lg bg-brand/15 text-xs font-black text-brand-ink"
+                                              />
+                                            ) : (
+                                              <span
+                                                aria-hidden="true"
+                                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warn/15 text-xs font-black text-warn-ink"
+                                              >
+                                                {nameInitial(name)}
+                                              </span>
+                                            )}
                                             <span className="truncate text-sm font-bold text-fg">{name}</span>
                                             {!t.member_id && t.guest_name && (
                                               <span className="ml-auto shrink-0 rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">

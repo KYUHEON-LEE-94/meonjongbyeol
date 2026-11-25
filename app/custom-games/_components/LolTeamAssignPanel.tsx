@@ -11,6 +11,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { Spinner } from '@/app/components/Spinner'
+import MemberAvatar from '@/app/components/MemberAvatar'
 import { LOL_CAPACITY, LOL_POSITIONS } from '@/lib/customGames/constants'
 import { formatLolRankShort, lolTierClass, positionLabel } from '@/lib/customGames/display'
 import { ALERT, BTN_GHOST, BTN_PRIMARY, CARD, H2 } from '@/lib/ui/styles'
@@ -27,6 +28,7 @@ export type LolParticipant = {
   rank: string | null
   lp: number | null
   isHost: boolean
+  avatarUrl: string | null
 }
 
 // 슬롯 3-상태: 확정 멤버 | 외부인 라벨(자유 텍스트) | 미배정.
@@ -73,7 +75,7 @@ export function nameInitial(name: string): string {
 
 // 드래그 대상을 하나의 값으로 통일한다.
 type Card =
-  | { kind: 'member'; key: string; name: string; tier: string | null; rank: string | null; lp: number | null; isHost: boolean }
+  | { kind: 'member'; key: string; name: string; tier: string | null; rank: string | null; lp: number | null; isHost: boolean; avatarUrl: string | null }
   | { kind: 'guest'; key: string; name: string }
 
 const cardDragId = (c: Card) => `${c.kind}:${c.key}`
@@ -81,14 +83,21 @@ const cardDragId = (c: Card) => `${c.kind}:${c.key}`
 function CardInner({ card }: { card: Card }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <span
-        aria-hidden="true"
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
-          card.kind === 'member' ? 'bg-brand/15 text-brand-ink' : 'bg-warn/15 text-warn-ink'
-        }`}
-      >
-        {nameInitial(card.name)}
-      </span>
+      {card.kind === 'member' ? (
+        <MemberAvatar
+          src={card.avatarUrl}
+          name={card.name}
+          size={28}
+          className="h-7 w-7 shrink-0 rounded-lg bg-brand/15 text-xs font-black text-brand-ink"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warn/15 text-xs font-black text-warn-ink"
+        >
+          {nameInitial(card.name)}
+        </span>
+      )}
       <span className="flex min-w-0 flex-1 items-center gap-1.5">
         <span className="truncate text-sm font-bold text-fg">{card.name}</span>
         {card.kind === 'member' && card.isHost && (
@@ -311,7 +320,7 @@ export default function LolTeamAssignPanel({
   }
 
   const memberCard = (p: LolParticipant): Card => ({
-    kind: 'member', key: p.key, name: p.name, tier: p.tier, rank: p.rank, lp: p.lp, isHost: p.isHost,
+    kind: 'member', key: p.key, name: p.name, tier: p.tier, rank: p.rank, lp: p.lp, isHost: p.isHost, avatarUrl: p.avatarUrl,
   })
 
   return (
@@ -432,9 +441,10 @@ export default function LolTeamAssignPanel({
                 <div className="flex flex-col gap-2">
                   {Array.from({ length: TEAM_SIZE }).map((_, slotIdx) => {
                     const slot = draft[teamIdx][slotIdx]
+                    const owner = slot?.kind === 'member' ? participants.find((p) => p.key === slot.key) : undefined
                     const card: Card | null = slot
                       ? slot.kind === 'member'
-                        ? { kind: 'member', key: slot.key, name: slot.name, tier: slot.tier, rank: slot.rank, lp: slot.lp, isHost: participants.find((p) => p.key === slot.key)?.isHost ?? false }
+                        ? { kind: 'member', key: slot.key, name: slot.name, tier: slot.tier, rank: slot.rank, lp: slot.lp, isHost: owner?.isHost ?? false, avatarUrl: owner?.avatarUrl ?? null }
                         : { kind: 'guest', key: slot.key, name: slot.name }
                       : null
                     return (
