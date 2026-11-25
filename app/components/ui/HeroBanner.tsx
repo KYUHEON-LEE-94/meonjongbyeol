@@ -11,6 +11,8 @@ type HeroStat = { label: string; value: string }
 
 type HeroBannerProps = {
   kicker?: string
+  /** kicker 옆에 붙는 작은 칩들(표시 전용 노드) */
+  badges?: React.ReactNode
   title: string
   description?: string
   action?: React.ReactNode
@@ -33,6 +35,7 @@ function Star({ className }: { className: string }) {
 
 export default function HeroBanner({
   kicker,
+  badges,
   title,
   description,
   action,
@@ -59,8 +62,16 @@ export default function HeroBanner({
       )}
 
       <div className={`relative max-w-full ${hasArt ? 'min-[360px]:pr-24 sm:max-w-[60%] sm:pr-0' : ''}`}>
-        {kicker && (
+        {kicker && !badges && (
           <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-white/80">{kicker}</p>
+        )}
+        {badges && (
+          <div className="flex flex-wrap items-center gap-2">
+            {kicker && (
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-white/80">{kicker}</p>
+            )}
+            {badges}
+          </div>
         )}
         <h1
           className={`mt-2 font-black tracking-[-0.03em] leading-[1.12] text-white ${

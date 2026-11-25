@@ -27,6 +27,11 @@ export const BTN_NEUTRAL = `${BTN_BASE} bg-surface-2 text-fg hover:bg-line-stron
 export const BTN_DANGER = `${BTN_BASE} bg-danger/90 text-white hover:bg-danger`
 // 히어로 배너(보라 그라데이션) 위 버튼. 흰 필 + 진보라 글자.
 export const BTN_ON_HERO = `${BTN_BASE} bg-white text-hero-from shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45)] hover:bg-white/90 focus-visible:ring-white/70`
+// 히어로 위 보조 버튼(흰 테두리 고스트).
+export const BTN_ON_HERO_GHOST = `${BTN_BASE} border border-white/70 text-white hover:bg-white/15 focus-visible:ring-white/70`
+// 히어로 위 상태 칩(흰 반투명 알약). 글자는 흰색 100%.
+export const HERO_CHIP =
+  'inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/30'
 
 // 히어로 배너 컨테이너. 그라데이션 위 텍스트는 항상 흰색(투명도 80% 이상).
 export const HERO =

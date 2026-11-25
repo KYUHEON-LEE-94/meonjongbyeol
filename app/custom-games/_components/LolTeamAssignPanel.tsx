@@ -13,6 +13,7 @@ import {
 import { Spinner } from '@/app/components/Spinner'
 import { LOL_CAPACITY, LOL_POSITIONS } from '@/lib/customGames/constants'
 import { formatLolRankShort, lolTierClass, positionLabel } from '@/lib/customGames/display'
+import { ALERT, BTN_GHOST, BTN_PRIMARY, CARD, H2 } from '@/lib/ui/styles'
 
 const TEAM_SIZE = LOL_CAPACITY / 2 // 5
 const GUEST_NAME_MAX = 20
@@ -45,10 +46,30 @@ export const EMPTY_LOL_DRAFT: LolTeamDraft = [
   [null, null, null, null, null],
 ]
 
-const TEAM_STYLES = [
-  { bg: 'bg-info/5 border-info/25', dot: 'bg-info', text: 'text-info-ink', label: '1팀 (블루)' },
-  { bg: 'bg-danger/5 border-danger/25', dot: 'bg-danger', text: 'text-danger-ink', label: '2팀 (레드)' },
-]
+// 1팀=블루(info), 2팀=레드(danger). 읽기 전용 팀 구성(상세 페이지)도 이 상수를 공유한다.
+export const TEAM_STYLES = [
+  {
+    bg: 'bg-info/5 border-info/25',
+    dot: 'bg-info',
+    text: 'text-info-ink',
+    pill: 'bg-info/12 text-info-ink',
+    over: 'ring-2 ring-info/60 bg-info/10',
+    label: '1팀 (블루)',
+  },
+  {
+    bg: 'bg-danger/5 border-danger/25',
+    dot: 'bg-danger',
+    text: 'text-danger-ink',
+    pill: 'bg-danger/12 text-danger-ink',
+    over: 'ring-2 ring-danger/60 bg-danger/10',
+    label: '2팀 (레드)',
+  },
+] as const
+
+/** 이름 첫 글자(아바타 이니셜). */
+export function nameInitial(name: string): string {
+  return Array.from(name.trim())[0]?.toUpperCase() ?? '?'
+}
 
 // 드래그 대상을 하나의 값으로 통일한다.
 type Card =
@@ -59,21 +80,27 @@ const cardDragId = (c: Card) => `${c.kind}:${c.key}`
 
 function CardInner({ card }: { card: Card }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-      {card.kind === 'member' && card.isHost && (
-        <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded bg-brand/15 border border-brand/25 text-brand-ink">
-          주최
-        </span>
-      )}
-      <span className="truncate text-sm font-bold text-fg">{card.name}</span>
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <span
+        aria-hidden="true"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
+          card.kind === 'member' ? 'bg-brand/15 text-brand-ink' : 'bg-warn/15 text-warn-ink'
+        }`}
+      >
+        {nameInitial(card.name)}
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="truncate text-sm font-bold text-fg">{card.name}</span>
+        {card.kind === 'member' && card.isHost && (
+          <span className="shrink-0 rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-black text-brand-ink">주최</span>
+        )}
+      </span>
       {card.kind === 'member' ? (
-        <span className={`ml-auto shrink-0 text-[11px] font-black ${lolTierClass(card.tier)}`}>
+        <span className={`shrink-0 text-[11px] font-black ${lolTierClass(card.tier)}`}>
           {formatLolRankShort(card.tier, card.rank, card.lp)}
         </span>
       ) : (
-        <span className="ml-auto shrink-0 rounded bg-warn/15 border border-warn/25 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">
-          외부인
-        </span>
+        <span className="shrink-0 rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">외부인</span>
       )}
     </div>
   )
@@ -105,8 +132,8 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative flex items-center gap-1 rounded-lg border border-line bg-surface-2 pl-2.5 pr-1.5 py-2 ${
-        isDragging ? 'shadow-lg border-brand/50 opacity-95' : ''
+      className={`relative flex min-h-11 items-center gap-1 rounded-xl bg-surface-raised py-1.5 pl-2 pr-1.5 ring-1 ring-line transition-shadow ${
+        isDragging ? 'shadow-[0_16px_32px_-12px_var(--color-shadow)] ring-brand/50 opacity-95' : ''
       }`}
     >
       {/* 드래그 핸들 = 카드 본문. 버튼(추방/삭제)은 리스너 밖이라 클릭이 드래그로 먹히지 않는다. */}
@@ -124,7 +151,7 @@ function DraggableCard({
           type="button"
           onClick={onRemove}
           aria-label={card.kind === 'guest' ? '외부인 삭제' : '명단에서 제외'}
-          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-faint hover:text-danger-ink transition-colors"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:bg-danger/10 hover:text-danger-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
             <path d="M6 18L18 6M6 6l12 12" />
@@ -135,18 +162,34 @@ function DraggableCard({
   )
 }
 
-function Slot({ id, label, card, disabled }: { id: string; label: string | null; card: Card | null; disabled: boolean }) {
+function Slot({
+  id,
+  label,
+  card,
+  disabled,
+  teamStyle,
+}: {
+  id: string
+  label: string
+  card: Card | null
+  disabled: boolean
+  teamStyle: (typeof TEAM_STYLES)[number]
+}) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled })
   return (
     <div className="flex items-center gap-2">
-      {label !== null && <span className="w-10 shrink-0 text-[10px] font-bold text-muted">{label}</span>}
+      <span className={`w-12 shrink-0 rounded-lg py-1 text-center text-[11px] font-bold ${teamStyle.pill}`}>{label}</span>
       <div
         ref={setNodeRef}
-        className={`min-h-[40px] flex-1 rounded-lg border px-2 py-1.5 transition-colors ${
-          isOver ? 'border-brand/60 bg-brand/10' : 'border-line bg-surface'
-        }`}
+        className={`min-h-12 min-w-0 flex-1 rounded-xl transition-[background-color,box-shadow] ${
+          isOver ? teamStyle.over : ''
+        } ${card ? '' : 'flex items-center border border-dashed border-line-strong px-3'}`}
       >
-        {card ? <DraggableCard card={card} disabled={disabled} /> : <span className="text-xs text-faint leading-[26px]">비어 있음</span>}
+        {card ? (
+          <DraggableCard card={card} disabled={disabled} />
+        ) : (
+          <span className="text-xs text-subtle">여기로 드래그</span>
+        )}
       </div>
     </div>
   )
@@ -157,7 +200,9 @@ function Pool({ children, disabled }: { children: React.ReactNode; disabled: boo
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border p-3 transition-colors ${isOver ? 'border-brand/60 bg-brand/10' : 'border-line bg-surface'}`}
+      className={`rounded-2xl border border-dashed p-3 transition-colors ${
+        isOver ? 'border-brand/60 bg-brand/10' : 'border-line-strong bg-surface-2/40'
+      }`}
     >
       {children}
     </div>
@@ -270,52 +315,58 @@ export default function LolTeamAssignPanel({
   })
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-5 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-black text-fg">팀 배정 ({isRift ? '협곡 · 포지션' : '증바람'})</h3>
-          <p className="text-xs text-subtle mt-0.5">
+    <section className={`${CARD} p-5 sm:p-6`} aria-label="팀 배정">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className={H2}>팀 배정</h2>
+            <span className="rounded-full bg-info/12 px-2.5 py-0.5 text-xs font-bold text-info-ink">
+              {isRift ? '협곡 · 포지션' : '증바람'}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted">
             명단 카드를 끌어 {isRift ? '포지션별로' : '각 팀에'} 배치하세요 · 저장 버튼으로 확정됩니다
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRandom}
-            disabled={saving || !canRandom}
-            title={canRandom ? undefined : `확정 ${LOL_CAPACITY}명이어야 랜덤 배정할 수 있습니다`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-              bg-info/10 border border-info/25 text-info-ink hover:bg-info/20 hover:text-info-ink
-              disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            랜덤 배정
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || filledCount === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-              bg-brand/20 border border-brand/40 text-brand-ink hover:bg-brand/30
-              disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {saving ? <Spinner size={3} /> : null}
-            저장
-          </button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onRandom}
+              disabled={saving || !canRandom}
+              title={canRandom ? undefined : `확정 ${LOL_CAPACITY}명이어야 랜덤 배정할 수 있습니다`}
+              className={BTN_GHOST}
+            >
+              랜덤 배정
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving || filledCount === 0}
+              className={BTN_PRIMARY}
+            >
+              {saving ? <Spinner size={3} /> : null}
+              저장
+            </button>
+          </div>
+          {!canRandom && (
+            <p className="text-[11px] text-subtle">랜덤 배정은 확정 {LOL_CAPACITY}명일 때 가능</p>
+          )}
         </div>
       </div>
 
       {validationError && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger-ink text-xs font-medium">
+        <div role="alert" className={`mb-4 ${ALERT.error}`}>
           {validationError}
         </div>
       )}
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         {/* 확정 명단 = 미배치 풀(드래그 소스). 배치된 인원은 슬롯에 있으므로 여기서 빠진다. */}
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-black tracking-widest uppercase text-subtle">
-              명단 · 미배치 ({poolCount})
+        <div className="mb-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-muted">
+              명단 · 미배치 <span className="font-display tabular-nums text-fg">{poolCount}</span>
             </span>
             <div className="flex items-center gap-1.5">
               <input
@@ -326,14 +377,14 @@ export default function LolTeamAssignPanel({
                 placeholder="외부인 이름 추가"
                 maxLength={GUEST_NAME_MAX}
                 disabled={saving}
-                className="w-36 px-2 py-1 rounded-lg text-xs font-medium text-fg bg-surface-2 border border-line
-                  placeholder:text-faint focus:outline-none focus:border-brand/50 disabled:opacity-50"
+                aria-label="외부인 이름"
+                className="h-9 w-36 rounded-xl border border-transparent bg-surface-2 px-3 text-xs font-medium text-fg placeholder:text-subtle transition-colors focus:border-brand/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/25 disabled:opacity-50 sm:w-44"
               />
               <button
                 type="button"
                 onClick={addGuest}
                 disabled={saving || !guestInput.trim()}
-                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-surface-2 border border-line text-fg hover:bg-surface disabled:opacity-40"
+                className="h-9 rounded-xl bg-brand/12 px-3 text-xs font-bold text-brand-ink transition-colors hover:bg-brand/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50"
               >
                 추가
               </button>
@@ -341,7 +392,7 @@ export default function LolTeamAssignPanel({
           </div>
           <Pool disabled={saving}>
             {poolCount === 0 ? (
-              <p className="text-xs text-faint">모든 인원이 배치되었습니다. 슬롯 카드를 여기로 끌면 배치가 해제됩니다.</p>
+              <p className="py-1 text-xs text-subtle">모든 인원이 배치되었습니다. 슬롯 카드를 여기로 끌면 배치가 해제됩니다.</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {poolMembers.map((p) => (
@@ -365,16 +416,20 @@ export default function LolTeamAssignPanel({
           </Pool>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {([0, 1] as const).map((teamIdx) => {
             const ts = TEAM_STYLES[teamIdx]
+            const teamFilled = draft[teamIdx].filter((v) => v !== null).length
             return (
-              <div key={teamIdx} className={`rounded-xl border p-3 ${ts.bg}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${ts.dot}`} />
-                  <span className={`text-[10px] font-black tracking-widest uppercase ${ts.text}`}>{ts.label}</span>
+              <div key={teamIdx} className={`rounded-2xl border p-3 sm:p-4 ${ts.bg}`}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${ts.dot}`} aria-hidden="true" />
+                  <span className={`text-sm font-black ${ts.text}`}>{ts.label}</span>
+                  <span className="ml-auto font-display text-xs font-bold tabular-nums text-muted">
+                    {teamFilled}/{TEAM_SIZE}
+                  </span>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {Array.from({ length: TEAM_SIZE }).map((_, slotIdx) => {
                     const slot = draft[teamIdx][slotIdx]
                     const card: Card | null = slot
@@ -386,9 +441,10 @@ export default function LolTeamAssignPanel({
                       <Slot
                         key={slotIdx}
                         id={`t${teamIdx}s${slotIdx}`}
-                        label={isRift ? positionLabel(LOL_POSITIONS[slotIdx]) : null}
+                        label={isRift ? positionLabel(LOL_POSITIONS[slotIdx]) : `${slotIdx + 1}`}
                         card={card}
                         disabled={saving}
+                        teamStyle={ts}
                       />
                     )
                   })}
@@ -399,12 +455,17 @@ export default function LolTeamAssignPanel({
         </div>
       </DndContext>
 
-      <div className="mt-3 flex items-center gap-1.5">
-        {Array.from({ length: LOL_CAPACITY }).map((_, i) => (
-          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i < filledCount ? 'bg-brand' : 'bg-surface-2'}`} />
-        ))}
-        <span className="text-[10px] text-faint ml-1">{filledCount}/{LOL_CAPACITY}명 배정</span>
+      <div className="mt-4 flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-brand transition-[width] duration-300"
+            style={{ width: `${(filledCount / LOL_CAPACITY) * 100}%` }}
+          />
+        </div>
+        <span className="shrink-0 text-xs font-semibold text-subtle">
+          <span className="font-display tabular-nums text-fg">{filledCount}/{LOL_CAPACITY}</span>명 배정
+        </span>
       </div>
-    </div>
+    </section>
   )
 }

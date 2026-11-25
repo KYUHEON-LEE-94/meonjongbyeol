@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { urlBase64ToUint8Array } from '@/lib/push/clientKey'
+import { BTN_GHOST, BTN_NEUTRAL, CARD } from '@/lib/ui/styles'
 
 /** 빌드타임 인라인. 비어 있으면 컴포넌트를 렌더하지 않는다. */
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
@@ -61,7 +62,7 @@ async function postSubscription(subscription: globalThis.PushSubscription): Prom
  * 상태의 진실은 브라우저의 `pushManager.getSubscription()` 이다(서버 GET 을 두면 기기별
  * 진실과 어긋난다). 마운트 시 로컬 구독이 있으면 멱등 POST 로 서버와 재동기화한다.
  */
-export default function PushNotifyToggle() {
+export default function PushNotifyToggle({ variant = 'banner' }: { variant?: 'banner' | 'compact' } = {}) {
   const [support, setSupport] = useState<Support>('checking')
   const [subscribed, setSubscribed] = useState(false)
   const [denied, setDenied] = useState(false)
@@ -189,6 +190,66 @@ export default function PushNotifyToggle() {
   if (serverState === 'unavailable') return null
 
   const enableBlocked = serverState === 'login-required' || serverState === 'no-member'
+
+  const toggleDisabled = busy || (!subscribed && (denied || enableBlocked))
+  const description = denied
+    ? '브라우저 설정에서 이 사이트의 알림을 허용해주세요.'
+    : '이 기기에서 내가 참가한 내전의 시작 1시간 전 알림을 받습니다.'
+
+  // 컴팩트(사이드 카드) 변형 — 표시만 다르고 상태·핸들러·노출 조건은 위와 동일하다.
+  if (variant === 'compact') {
+    return (
+      <section className={`${CARD} p-5`} aria-label="시작 1시간 전 알림">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/12 text-brand-ink" aria-hidden="true">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 003.4 0" />
+            </svg>
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-bold text-fg">시작 1시간 전 알림</h2>
+            {support !== 'ios-needs-install' && (
+              <p className={`mt-0.5 text-xs font-semibold ${subscribed ? 'text-ok-ink' : 'text-subtle'}`}>
+                {subscribed ? '이 기기에서 켜짐' : '꺼짐'}
+              </p>
+            )}
+          </div>
+        </div>
+        {support === 'ios-needs-install' ? (
+          <div className="mt-3 text-xs leading-relaxed text-muted">
+            <p className="font-bold text-fg">아이폰은 홈 화면에 추가해야 알림을 받을 수 있어요.</p>
+            <p className="mt-1">
+              Safari 하단 공유 버튼 → &ldquo;홈 화면에 추가&rdquo; → 홈 화면 아이콘으로 다시 열어주세요. (iOS 16.4 이상)
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="mt-3 text-xs leading-relaxed text-muted">{description}</p>
+            {message && <p className="mt-2 text-xs text-subtle">{message}</p>}
+            {serverState === 'login-required' && (
+              <Link href="/login" className="mt-2 inline-block text-xs font-bold text-brand-ink underline">
+                다시 로그인
+              </Link>
+            )}
+            {serverState === 'no-member' && (
+              <Link href="/profile" className="mt-2 inline-block text-xs font-bold text-brand-ink underline">
+                프로필에서 멤버 등록
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={subscribed ? disable : enable}
+              disabled={toggleDisabled}
+              className={`${subscribed ? BTN_NEUTRAL : BTN_GHOST} mt-4 w-full`}
+            >
+              {subscribed ? '알림 끄기' : '알림 받기'}
+            </button>
+          </>
+        )}
+      </section>
+    )
+  }
 
   if (support === 'ios-needs-install') {
     return (

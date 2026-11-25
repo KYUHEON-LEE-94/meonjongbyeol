@@ -10,6 +10,8 @@ import PushNotifyToggle from '@/app/components/PushNotifyToggle'
 import SteamGamePicker, { type SteamGameSelection } from '@/app/custom-games/_components/SteamGamePicker'
 import LolTeamAssignPanel, {
   EMPTY_LOL_DRAFT,
+  TEAM_STYLES,
+  nameInitial,
   type LolGuestCard,
   type LolSlot,
   type LolTeamDraft,
@@ -19,7 +21,7 @@ import { effectiveMemberCapacity } from '@/lib/customGames/waitlist'
 import {
   formatKstSchedule,
   formatLolRankShort,
-  gameKindBadgeClass,
+  formatTimeUntil,
   gameKindLabel,
   lolModeLabel,
   lolTierClass,
@@ -31,7 +33,21 @@ import {
   toKstDateInput,
   toKstTimeInput,
 } from '@/lib/customGames/display'
-import { ALERT, BTN_NEUTRAL, BTN_PRIMARY, CONTAINER, INPUT, PANEL, SHELL } from '@/lib/ui/styles'
+import {
+  ALERT,
+  BTN_BASE,
+  BTN_NEUTRAL,
+  BTN_ON_HERO,
+  BTN_ON_HERO_GHOST,
+  BTN_PRIMARY,
+  CARD,
+  CONTAINER,
+  H2,
+  HERO_CHIP,
+  INPUT,
+  PANEL,
+  SHELL,
+} from '@/lib/ui/styles'
 import HeroBanner from '@/app/components/ui/HeroBanner'
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
@@ -107,6 +123,24 @@ function Badge({ className, children }: { className: string; children: React.Rea
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${className}`}>
       {children}
     </span>
+  )
+}
+
+type InfoIconName = 'calendar' | 'user' | 'game' | 'users' | 'status'
+
+const INFO_ICON_PATHS: Record<InfoIconName, string[]> = {
+  calendar: ['M8 2v4M16 2v4', 'M3 9h18', 'M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z'],
+  user: ['M20 21a8 8 0 10-16 0', 'M12 13a5 5 0 100-10 5 5 0 000 10z'],
+  game: ['M6 11h4M8 9v4', 'M15 12h.01M18 10h.01', 'M17.3 5H6.7a4 4 0 00-3.96 3.43l-.7 4.9A3 3 0 007 16l2-2h6l2 2a3 3 0 004.96-2.67l-.7-4.9A4 4 0 0017.3 5z'],
+  users: ['M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2', 'M9 11a4 4 0 100-8 4 4 0 000 8z', 'M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75'],
+  status: ['M22 12h-4l-3 9L9 3l-3 9H2'],
+}
+
+function InfoIcon({ name }: { name: InfoIconName }) {
+  return (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {INFO_ICON_PATHS[name].map((d) => <path key={d} d={d} />)}
+    </svg>
   )
 }
 
@@ -532,29 +566,46 @@ export default function CustomGameDetailPage() {
     ? Math.max(0, confirmedList.length - effectiveMemberCapacity(editCapacity, guests.length))
     : 0
 
+  // 롤 내전 관리자 화면은 팀 배정 패널의 미배치 풀이 명단 역할을 하므로 참가자 카드를 생략한다.
+  const showLolPanel = isLol && canManage && !isClosed
+
   const renderParticipantRow = (p: MemberParticipant, tone: 'confirmed' | 'waitlist') => (
-    <div
+    <li
       key={p.id}
-      className={`flex items-center gap-2 px-3 py-2 rounded-2xl border ${
-        tone === 'confirmed' ? 'bg-surface-2 border-line' : 'bg-warn/5 border-warn/15'
+      className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${
+        tone === 'confirmed' ? 'bg-surface-2/60' : 'bg-warn/5'
       }`}
     >
-      <span className={`text-[10px] font-black w-5 text-center ${tone === 'confirmed' ? 'text-faint' : 'text-warn-ink'}`}>
-        {tone === 'confirmed' ? p.position : p.position - confirmedList.length}
-      </span>
-      <div>
+      {tone === 'confirmed' ? (
+        <span
+          aria-hidden="true"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-sm font-black text-brand-ink"
+        >
+          {nameInitial(p.member_name)}
+        </span>
+      ) : (
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warn/15 font-display text-sm font-bold tabular-nums text-warn-ink"
+          aria-label={`대기 ${p.position - confirmedList.length}번`}
+        >
+          {p.position - confirmedList.length}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-bold text-fg leading-tight">{p.member_name}</p>
+          <p className="truncate text-sm font-bold leading-tight text-fg">{p.member_name}</p>
           {p.is_host && (
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-brand/15 border border-brand/25 text-brand-ink">
+            <span className="shrink-0 rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-black text-brand-ink">
               주최
             </span>
           )}
         </div>
-        <p className="text-[10px] text-faint">{p.riot_game_name}#{p.riot_tagline}</p>
+        <p className="mt-0.5 truncate text-xs text-subtle">
+          {p.riot_game_name ? `${p.riot_game_name}#${p.riot_tagline}` : p.is_host ? '주최자' : '참가자'}
+        </p>
       </div>
       {isLol && (
-        <span className={`ml-auto shrink-0 text-[11px] font-black ${lolTierClass(p.lol_tier)}`}>
+        <span className={`shrink-0 text-[11px] font-black ${lolTierClass(p.lol_tier)}`}>
           {formatLolRankShort(p.lol_tier, p.lol_rank, p.lol_league_points)}
         </span>
       )}
@@ -563,22 +614,96 @@ export default function CustomGameDetailPage() {
           type="button"
           onClick={() => handleKick(p)}
           disabled={kickingId === p.id}
-          className="ml-1 w-5 h-5 flex items-center justify-center rounded-md
-            text-faint hover:text-danger-ink hover:bg-danger/10
-            disabled:opacity-40 transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted transition-colors hover:bg-danger/15 hover:text-danger-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-40"
           title="명단에서 제외"
+          aria-label={`${p.member_name} 명단에서 제외`}
         >
           {kickingId === p.id ? <Spinner size={3} /> : (
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           )}
         </button>
       )}
-    </div>
+    </li>
   )
 
   // ── 렌더 ─────────────────────────────────────────────────────────
+
+  const remainingSeats = game ? Math.max(0, game.capacity - seatsTaken) : 0
+  const timeUntil = game && !isClosed ? formatTimeUntil(game.scheduled_at) : null
+  const fillPercent = game && game.capacity > 0 ? Math.min(100, (seatsTaken / game.capacity) * 100) : 0
+
+  const heroStats = game
+    ? [
+        { label: '확정', value: `${seatsTaken}/${game.capacity}` },
+        ...(waitlist.length > 0 ? [{ label: '대기', value: `${waitlist.length}` }] : []),
+        ...(timeUntil ? [{ label: '시작까지', value: timeUntil }] : []),
+      ]
+    : []
+
+  const heroAction = game && (refreshing || myParticipation || (!isClosed && isRecruiting)) ? (
+    <>
+      {refreshing && (
+        <span role="status" aria-label="새로고침 중" className={HERO_CHIP}>
+          <Spinner size={3} /> 갱신 중
+        </span>
+      )}
+      {!isClosed && isRecruiting && !myParticipation && (
+        <button
+          type="button"
+          onClick={handleJoin}
+          disabled={joining}
+          className={BTN_ON_HERO}
+        >
+          {joining ? <Spinner size={4} /> : null}
+          {seatsTaken >= game.capacity ? '대기 신청' : '참가 신청'}
+        </button>
+      )}
+      {myParticipation && (
+        <span className="inline-flex min-h-11 items-center rounded-full bg-white/20 px-4 text-sm font-bold text-white ring-1 ring-white/30">
+          {myParticipation.is_host
+            ? '주최자'
+            : myParticipation.confirmed
+              ? '참가 확정'
+              : `대기 ${myParticipation.waitlist_position ?? myParticipation.position - confirmedList.length}번`}
+        </span>
+      )}
+      {/* 주최자는 서버가 취소를 400으로 막는다 — 버튼 자체를 숨긴다(관리자는 is_host=false라 노출). */}
+      {!isClosed && isRecruiting && myParticipation && !myParticipation.is_host && (
+        <button
+          type="button"
+          onClick={handleLeave}
+          disabled={joining}
+          className={BTN_ON_HERO_GHOST}
+        >
+          {joining ? <Spinner size={4} /> : null}
+          참가 취소
+        </button>
+      )}
+    </>
+  ) : null
+
+  const infoRows = game
+    ? [
+        { icon: 'calendar' as const, label: '일정', value: formatKstSchedule(game.scheduled_at) },
+        { icon: 'user' as const, label: '주최', value: game.host_member_name ?? '알 수 없음' },
+        {
+          icon: 'game' as const,
+          label: '게임',
+          value: isLol && game.lol_mode
+            ? `${gameKindLabel(game.game_kind, game.game_kind_label)} · ${lolModeLabel(game.lol_mode)}`
+            : gameKindLabel(game.game_kind, game.game_kind_label),
+        },
+        {
+          icon: 'users' as const,
+          label: '인원',
+          value: `${seatsTaken}/${game.capacity}명${guests.length > 0 ? ` (게스트 ${guests.length}명 포함)` : ''}${
+            waitlist.length > 0 ? ` · 대기 ${waitlist.length}명` : ''
+          }`,
+        },
+      ]
+    : []
 
   return (
     <>
@@ -597,433 +722,475 @@ export default function CustomGameDetailPage() {
           </Link>
         </nav>
 
-        {!loading && game && (
-          <HeroBanner
-            size="md"
-            kicker={gameKindLabel(game.game_kind, game.game_kind_label)}
-            title={game.title}
-            description={`${formatKstSchedule(game.scheduled_at)} · 주최 ${game.host_member_name ?? '알 수 없음'}`}
-            illustration={
-              game.game_kind === 'steam' && game.steam_app_id != null ? (
-                <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
-                  <span className="relative block h-[46px] w-[120px] overflow-hidden rounded-xl sm:h-[60px] sm:w-[160px]">
-                    <SteamThumb appid={game.steam_app_id} name={gameKindLabel(game.game_kind, game.game_kind_label)} />
-                  </span>
-                </span>
-              ) : game.game_kind === 'tft' || game.game_kind === 'lol' ? (
-                <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
-                  <span className="relative block h-16 w-16 overflow-hidden rounded-xl sm:h-24 sm:w-24">
-                    <Image src={`/custom-games/${game.game_kind}.png`} alt="" fill sizes="96px" className="object-cover" />
-                  </span>
-                </span>
-              ) : (
-                'character'
-              )
-            }
-          />
-        )}
-
-        <div className={PANEL} aria-busy={loading || refreshing}>
-          {loading && (
+        {loading && (
+          <div className={PANEL} aria-busy="true">
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-subtle">
               <Spinner size={6} />
               <p className="text-sm font-semibold">로딩 중...</p>
             </div>
-          )}
+          </div>
+        )}
 
-          {!loading && !game && (
+        {!loading && !game && (
+          <div className={PANEL}>
             <div className="text-center py-20">
               <p className="text-muted font-bold">{loadError ?? '내전을 찾을 수 없습니다'}</p>
               <Link href="/custom-games" className="text-brand-ink text-sm mt-2 inline-block hover:underline">← 목록으로</Link>
             </div>
-          )}
+          </div>
+        )}
 
-          {!loading && game && (
-            <>
-              {/* 타이틀 */}
-              <div className="mb-8">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  {refreshing && (
-                    <span role="status" aria-label="새로고침 중" className="text-subtle">
-                      <Spinner size={4} />
-                    </span>
-                  )}
-                  <Badge className={gameKindBadgeClass(game.game_kind)}>
-                    {gameKindLabel(game.game_kind, game.game_kind_label)}
-                  </Badge>
+        {!loading && game && (
+          <>
+            <HeroBanner
+              size="md"
+              className="mb-6"
+              kicker={gameKindLabel(game.game_kind, game.game_kind_label)}
+              badges={
+                <>
                   {isLol && game.lol_mode && (
-                    <Badge className="bg-info/10 border-info/20 text-info-ink">
-                      {lolModeLabel(game.lol_mode)}
-                    </Badge>
+                    <span className={HERO_CHIP}>{lolModeLabel(game.lol_mode)}</span>
                   )}
-                  <Badge className={effectiveStatusBadgeClass(game.status, game.scheduled_at)}>{effectiveStatusLabel(game.status, game.scheduled_at)}</Badge>
-                  {myParticipation && (
-                    <Badge className={myParticipation.confirmed
-                      ? 'bg-ok/10 border-ok/20 text-ok-ink'
-                      : 'bg-warn/10 border-warn/20 text-warn-ink'}>
-                      {myParticipation.confirmed ? '참가 확정' : `대기 ${myParticipation.waitlist_position ?? myParticipation.position - confirmedList.length}번`}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-subtle mt-0.5">
-                  {seatsTaken}/{game.capacity}명
-                  {guests.length > 0 && ` (게스트 ${guests.length}명 포함)`}
-                  {waitlist.length > 0 && ` · 대기 ${waitlist.length}명`}
-                </p>
-                {/* 삭제는 종료된 내전에도 노출한다 — 나머지 버튼은 각자 !isClosed 로 기존 동작을 유지한다. */}
-                {(!isClosed || canManage) && (
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {!isClosed && isRecruiting && !myParticipation && (
-                      <button
-                        type="button"
-                        onClick={handleJoin}
-                        disabled={joining}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-ok/10 border border-ok/30 text-ok-ink
-                          hover:bg-ok/20 hover:text-ok-ink
-                          disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {joining ? <Spinner size={4} /> : null}
-                        {seatsTaken >= game.capacity ? '대기 신청' : '참가 신청'}
-                      </button>
-                    )}
-                    {/* 주최자는 서버가 취소를 400으로 막는다 — 버튼 자체를 숨긴다(관리자는 is_host=false라 노출). */}
-                    {!isClosed && isRecruiting && myParticipation && !myParticipation.is_host && (
-                      <button
-                        type="button"
-                        onClick={handleLeave}
-                        disabled={joining}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-surface-2 border border-line text-muted
-                          hover:text-fg hover:bg-line-strong
-                          disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {joining ? <Spinner size={4} /> : null}
-                        참가 취소
-                      </button>
-                    )}
-                    {canManage && !isClosed && (
-                      <button
-                        type="button"
-                        onClick={handleOpenEdit}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-surface-2 border border-line text-muted
-                          hover:text-fg hover:bg-surface-2"
-                      >
-                        수정
-                      </button>
-                    )}
-                    {canManage && !isClosed && (
-                      <button
-                        type="button"
-                        onClick={handleEnd}
-                        disabled={ending || deleting}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-danger/10 border border-danger/20 text-danger-ink
-                          hover:bg-danger/20 hover:text-danger-ink
-                          disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {ending ? <><Spinner size={4} /> 종료 중...</> : '내전 종료'}
-                      </button>
-                    )}
-                    {canManage && (
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={deleting || ending}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-danger/20 border border-danger/40 text-danger-ink
-                          hover:bg-danger/30 hover:text-danger-ink
-                          disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {deleting ? <><Spinner size={4} /> 삭제 중...</> : '삭제'}
-                      </button>
-                    )}
-                  </div>
-                )}
+                  <span className={HERO_CHIP}>{effectiveStatusLabel(game.status, game.scheduled_at)}</span>
+                </>
+              }
+              title={game.title}
+              description={`${formatKstSchedule(game.scheduled_at)} · 주최 ${game.host_member_name ?? '알 수 없음'}`}
+              stats={heroStats}
+              action={heroAction}
+              illustration={
+                game.game_kind === 'steam' && game.steam_app_id != null ? (
+                  <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
+                    <span className="relative block h-[46px] w-[120px] overflow-hidden rounded-xl sm:h-[60px] sm:w-[160px]">
+                      <SteamThumb appid={game.steam_app_id} name={gameKindLabel(game.game_kind, game.game_kind_label)} />
+                    </span>
+                  </span>
+                ) : game.game_kind === 'tft' || game.game_kind === 'lol' ? (
+                  <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
+                    <span className="relative block h-16 w-16 overflow-hidden rounded-xl sm:h-24 sm:w-24">
+                      <Image src={`/custom-games/${game.game_kind}.png`} alt="" fill sizes="96px" className="object-cover" />
+                    </span>
+                  </span>
+                ) : (
+                  'character'
+                )
+              }
+            />
+
+            {error && (
+              <div role="alert" className={`mb-6 ${ALERT.error}`}>
+                {error}
+              </div>
+            )}
+            {successMsg && (
+              <div role="status" className={`mb-6 ${ALERT.ok}`}>
+                {successMsg}
+              </div>
+            )}
+
+            {/* 모바일: 정보·알림 → 본문 → 관리 / lg: 본문(좌) + 정보·알림·관리(우) */}
+            <div
+              className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr] lg:items-start"
+              aria-busy={refreshing}
+            >
+              {/* ── 사이드: 정보 + 알림 ── */}
+              <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
+                <section className={`${CARD} p-5`} aria-label="내전 정보">
+                  <h2 className={H2}>내전 정보</h2>
+                  <dl className="mt-4 flex flex-col gap-3">
+                    {infoRows.map((row) => (
+                      <div key={row.label} className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/12 text-brand-ink" aria-hidden="true">
+                          <InfoIcon name={row.icon} />
+                        </span>
+                        <div className="min-w-0">
+                          <dt className="text-xs font-semibold text-subtle">{row.label}</dt>
+                          <dd className="text-sm font-bold text-fg break-keep">{row.value}</dd>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/12 text-brand-ink" aria-hidden="true">
+                        <InfoIcon name="status" />
+                      </span>
+                      <div className="min-w-0">
+                        <dt className="text-xs font-semibold text-subtle">상태</dt>
+                        <dd className="mt-0.5">
+                          <Badge className={effectiveStatusBadgeClass(game.status, game.scheduled_at)}>
+                            {effectiveStatusLabel(game.status, game.scheduled_at)}
+                          </Badge>
+                        </dd>
+                      </div>
+                    </div>
+                  </dl>
+                </section>
+
+                {!isClosed && <PushNotifyToggle variant="compact" />}
               </div>
 
-              {!isClosed && <PushNotifyToggle />}
-
-              {error && (
-                <div className="mb-6 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 text-danger-ink text-sm font-medium">
-                  {error}
-                </div>
-              )}
-              {successMsg && (
-                <div className="mb-6 px-4 py-3 rounded-xl bg-ok/10 border border-ok/20 text-ok-ink text-sm font-medium">
-                  {successMsg}
-                </div>
-              )}
-
-              {/* 명단 */}
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-xs font-black text-subtle tracking-widest uppercase">
-                    확정 명단 ({seatsTaken}/{game.capacity})
-                  </h2>
-                  <div className="flex items-center gap-2">
+              {/* ── 메인 ── */}
+              <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+                {/* 좌석 현황 */}
+                <section className={`${CARD} p-5 sm:p-6`} aria-label="좌석 현황">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className={H2}>좌석 현황</h2>
+                      <p className="mt-1 text-sm text-muted">
+                        <span className="font-display font-bold tabular-nums text-fg">{seatsTaken}/{game.capacity}</span>
+                        {' · '}
+                        {remainingSeats > 0
+                          ? `${remainingSeats}자리 남음`
+                          : `정원 마감${waitlist.length > 0 ? ` · 대기 ${waitlist.length}명` : ''}`}
+                      </p>
+                    </div>
                     {canManage && !isClosed && (
                       <button
                         type="button"
                         onClick={() => setShowMemberAdd((v) => !v)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                          text-xs font-bold transition-all duration-150
-                          bg-brand/10 border border-brand/25 text-brand-ink
-                          hover:bg-brand/20"
+                        aria-expanded={showMemberAdd}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-brand/12 px-3 text-xs font-bold text-brand-ink transition-colors hover:bg-brand/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                       >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
                         멤버 추가
                       </button>
                     )}
                   </div>
-                </div>
 
-                {canManage && !isClosed && showMemberAdd && (
-                  <div className="mb-4 p-4 rounded-xl border border-line bg-surface">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-black text-brand-ink tracking-widest uppercase">승인 멤버 추가</p>
-                      <button
-                        type="button"
-                        onClick={() => { setShowMemberAdd(false); setMemberQuery(''); setSelectedMemberIds(new Set()) }}
-                        className="text-xs font-bold text-subtle hover:text-muted transition-colors"
-                      >
-                        닫기
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={memberQuery}
-                      onChange={(e) => setMemberQuery(e.target.value)}
-                      placeholder="멤버 이름 검색"
-                      className="w-full mb-3 px-3 py-2 rounded-lg text-sm text-fg
-                        bg-surface-2 border border-line
-                        placeholder:text-faint
-                        focus:outline-none focus:border-brand/50 transition-colors"
-                    />
-                    {loadingOptions ? (
-                      <div className="flex items-center gap-2 text-subtle text-sm py-3">
-                        <Spinner size={4} /> 불러오는 중...
-                      </div>
-                    ) : memberOptions.length === 0 ? (
-                      <p className="text-sm text-faint py-2">추가할 수 있는 승인 멤버가 없습니다</p>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const allSelected = memberOptions.every((m) => selectedMemberIds.has(m.id))
-                              setSelectedMemberIds((prev) => {
-                                const next = new Set(prev)
-                                memberOptions.forEach((m) => (allSelected ? next.delete(m.id) : next.add(m.id)))
-                                return next
-                              })
-                            }}
-                            className="text-[11px] font-bold text-brand-ink hover:underline"
-                          >
-                            {memberOptions.every((m) => selectedMemberIds.has(m.id)) ? '전체 해제' : '전체 선택'}
-                          </button>
-                          <span className="text-[11px] text-subtle">{selectedMemberIds.size}명 선택됨</span>
-                        </div>
-                        <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
-                          {memberOptions.map((m) => {
-                            const checked = selectedMemberIds.has(m.id)
-                            return (
-                              <button
-                                key={m.id}
-                                type="button"
-                                onClick={() => toggleMemberSelect(m.id)}
-                                aria-pressed={checked}
-                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-colors ${
-                                  checked ? 'border-brand/40 bg-brand/10' : 'border-line bg-surface-2 hover:bg-surface'
-                                }`}
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+                    <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${fillPercent}%` }} />
+                  </div>
+
+                  {game.capacity <= 20 && (
+                    <ul className="mt-5 grid grid-cols-5 gap-x-2 gap-y-4 sm:grid-cols-10" aria-label="좌석">
+                      {confirmedList.map((p) => (
+                        <li key={p.id} className="flex min-w-0 flex-col items-center gap-1.5" title={p.member_name}>
+                          <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-brand/15 text-sm font-black text-brand-ink ring-2 ring-brand/30">
+                            {nameInitial(p.member_name)}
+                            {p.is_host && (
+                              <span
+                                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white"
+                                aria-label="주최자"
                               >
-                                <span
-                                  aria-hidden="true"
-                                  className={`shrink-0 w-4 h-4 rounded flex items-center justify-center border ${
-                                    checked ? 'bg-brand border-brand text-white' : 'border-line-strong'
+                                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                  <path d="M12 2.5l2.6 6.2 6.7.6-5.1 4.4 1.6 6.5L12 16.7l-5.8 3.5 1.6-6.5L2.7 9.3l6.7-.6z" />
+                                </svg>
+                              </span>
+                            )}
+                          </span>
+                          <span className="w-full truncate text-center text-[11px] font-semibold text-muted">{p.member_name}</span>
+                        </li>
+                      ))}
+                      {guests.map((g) => (
+                        <li key={g.id} className="flex min-w-0 flex-col items-center gap-1.5" title={`${g.display_name} (게스트)`}>
+                          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-warn/15 text-sm font-black text-warn-ink ring-2 ring-warn/30">
+                            {nameInitial(g.display_name)}
+                          </span>
+                          <span className="w-full truncate text-center text-[11px] font-semibold text-muted">{g.display_name}</span>
+                        </li>
+                      ))}
+                      {Array.from({ length: remainingSeats }).map((_, i) => (
+                        <li key={`empty-${i}`} className="flex flex-col items-center gap-1.5">
+                          <span className="h-11 w-11 rounded-full border-2 border-dashed border-line-strong" aria-hidden="true" />
+                          <span className="text-[11px] font-semibold text-subtle">빈 자리</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {canManage && !isClosed && showMemberAdd && (
+                    <div className="mt-5 rounded-2xl p-4 ring-1 ring-line">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-bold text-fg">승인 멤버 추가</p>
+                        <button
+                          type="button"
+                          onClick={() => { setShowMemberAdd(false); setMemberQuery(''); setSelectedMemberIds(new Set()) }}
+                          className="rounded-xl px-2 py-1 text-xs font-bold text-subtle transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                        >
+                          닫기
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={memberQuery}
+                        onChange={(e) => setMemberQuery(e.target.value)}
+                        placeholder="멤버 이름 검색"
+                        aria-label="멤버 이름 검색"
+                        className={`${INPUT} mb-3`}
+                      />
+                      {loadingOptions ? (
+                        <div className="flex items-center gap-2 text-subtle text-sm py-3">
+                          <Spinner size={4} /> 불러오는 중...
+                        </div>
+                      ) : memberOptions.length === 0 ? (
+                        <p className="text-sm text-subtle py-2">추가할 수 있는 승인 멤버가 없습니다</p>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const allSelected = memberOptions.every((m) => selectedMemberIds.has(m.id))
+                                setSelectedMemberIds((prev) => {
+                                  const next = new Set(prev)
+                                  memberOptions.forEach((m) => (allSelected ? next.delete(m.id) : next.add(m.id)))
+                                  return next
+                                })
+                              }}
+                              className="text-xs font-bold text-brand-ink hover:underline"
+                            >
+                              {memberOptions.every((m) => selectedMemberIds.has(m.id)) ? '전체 해제' : '전체 선택'}
+                            </button>
+                            <span className="text-xs text-subtle">{selectedMemberIds.size}명 선택됨</span>
+                          </div>
+                          <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+                            {memberOptions.map((m) => {
+                              const checked = selectedMemberIds.has(m.id)
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => toggleMemberSelect(m.id)}
+                                  aria-pressed={checked}
+                                  className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-left ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+                                    checked ? 'bg-brand/10 ring-brand/40' : 'bg-surface-2 ring-transparent hover:bg-line-strong'
                                   }`}
                                 >
-                                  {checked && (
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M5 13l4 4L19 7" />
-                                    </svg>
+                                  <span
+                                    aria-hidden="true"
+                                    className={`shrink-0 w-4 h-4 rounded flex items-center justify-center border ${
+                                      checked ? 'bg-brand border-brand text-white' : 'border-line-strong'
+                                    }`}
+                                  >
+                                    {checked && (
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </span>
+                                  <span
+                                    aria-hidden="true"
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-xs font-black text-brand-ink"
+                                  >
+                                    {nameInitial(m.member_name)}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block text-sm font-bold text-fg leading-tight truncate">{m.member_name}</span>
+                                    <span className="block text-xs text-subtle truncate">
+                                      {m.riot_game_name ? `${m.riot_game_name}#${m.riot_tagline}` : '라이엇 ID 미등록'}
+                                    </span>
+                                  </span>
+                                  {isLol && (
+                                    <span className={`ml-auto shrink-0 text-[11px] font-black ${lolTierClass(m.lol_tier)}`}>
+                                      {formatLolRankShort(m.lol_tier, m.lol_rank, m.lol_league_points)}
+                                    </span>
                                   )}
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block text-sm font-bold text-fg leading-tight truncate">{m.member_name}</span>
-                                  <span className="block text-[10px] text-faint truncate">
-                                    {m.riot_game_name ? `${m.riot_game_name}#${m.riot_tagline}` : '라이엇 ID 미등록'}
-                                  </span>
-                                </span>
-                                {isLol && (
-                                  <span className={`ml-auto shrink-0 text-[11px] font-black ${lolTierClass(m.lol_tier)}`}>
-                                    {formatLolRankShort(m.lol_tier, m.lol_rank, m.lol_league_points)}
-                                  </span>
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={handleAddSelectedMembers}
-                            disabled={addingMembers || selectedMemberIds.size === 0}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-                              text-xs font-bold transition-all duration-150
-                              bg-ok/10 border border-ok/25 text-ok-ink
-                              hover:bg-ok/20 hover:text-ok-ink
-                              disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {addingMembers ? <Spinner size={3} /> : null}
-                            선택 {selectedMemberIds.size}명 추가
-                          </button>
-                        </div>
-                      </>
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handleAddSelectedMembers}
+                              disabled={addingMembers || selectedMemberIds.size === 0}
+                              className={BTN_PRIMARY}
+                            >
+                              {addingMembers ? <Spinner size={3} /> : null}
+                              선택 {selectedMemberIds.size}명 추가
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* 참가자 — 롤 관리자 화면은 아래 팀 배정 패널의 미배치 풀이 명단을 대신한다. */}
+                {!showLolPanel && (
+                  <section className={`${CARD} p-5 sm:p-6`} aria-label="참가자">
+                    <h2 className={H2}>
+                      참가자 <span className="font-display tabular-nums text-muted">{seatsTaken}</span>
+                    </h2>
+                    {confirmedList.length === 0 && guests.length === 0 ? (
+                      <p className="mt-3 text-sm text-subtle">아직 참가자가 없습니다</p>
+                    ) : (
+                      <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {confirmedList.map((p) => renderParticipantRow(p, 'confirmed'))}
+                        {guests.map((g) => (
+                          <li key={g.id} className="flex items-center gap-3 rounded-2xl bg-warn/5 px-3 py-2.5">
+                            <span
+                              aria-hidden="true"
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-warn/15 text-sm font-black text-warn-ink"
+                            >
+                              {nameInitial(g.display_name)}
+                            </span>
+                            <p className="min-w-0 flex-1 truncate text-sm font-bold text-fg">{g.display_name}</p>
+                            <span className="shrink-0 rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">
+                              게스트
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </div>
+                    {!isTft && !isLol && (
+                      <p className="mt-4 text-xs text-subtle">
+                        {gameKindLabel(game.game_kind, game.game_kind_label)} 내전은 모집·참가 관리만 지원합니다.
+                      </p>
+                    )}
+                  </section>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  {confirmedList.length === 0 && guests.length === 0 && (
-                    <p className="text-sm text-faint">아직 참가자가 없습니다</p>
-                  )}
-                  {/* 롤 내전은 확정 멤버를 아래 팀 배정 패널의 명단(드래그 소스)에서 보여준다 — 중복 제거. */}
-                  {!isLol && confirmedList.map((p) => renderParticipantRow(p, 'confirmed'))}
-                  {isLol && confirmedList.length > 0 && (
-                    <p className="text-xs text-subtle">명단은 아래 팀 배정에서 카드로 확인·배치할 수 있어요.</p>
-                  )}
+                {/* 대기 명단 */}
+                {waitlist.length > 0 && (
+                  <section className={`${CARD} p-5 sm:p-6`} aria-label="대기 명단">
+                    <h2 className={H2}>
+                      대기 명단 <span className="font-display tabular-nums text-muted">{waitlist.length}</span>
+                    </h2>
+                    <p className="mt-1 text-xs text-subtle">확정 인원이 취소하면 순번대로 자동 확정됩니다</p>
+                    <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {waitlist.map((p) => renderParticipantRow(p, 'waitlist'))}
+                    </ul>
+                  </section>
+                )}
 
-                  {guests.map((g) => (
-                    <div
-                      key={g.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-2xl border bg-warn/5 border-warn/15"
-                    >
-                      <div className="w-1.5 h-1.5 rounded-full bg-warn" />
-                      <p className="text-sm font-bold text-fg leading-tight">{g.display_name}</p>
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-warn/15 border border-warn/25 text-warn-ink">
-                        게스트
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {/* 레거시 롤체(tft) 내전: 생성·기록 기능은 종료됐고 모집 정보만 표시한다. */}
+                {isTft && (
+                  <p className={ALERT.warn}>
+                    롤체 내전(종료된 기능) — 기록 기능은 더 이상 제공되지 않습니다.
+                  </p>
+                )}
+
+                {/* ── 롤 내전: 팀/포지션 배정 ───── */}
+                {isLol && (
+                  <>
+                    {canManage && !isClosed ? (
+                      <LolTeamAssignPanel
+                        participants={lolParticipants}
+                        guests={lolPoolGuests}
+                        mode={isRift ? 'rift' : 'aram'}
+                        draft={lolDraft}
+                        onChange={setLolDraft}
+                        onGuestsChange={setLolPoolGuests}
+                        onKickMember={(key) => {
+                          const p = confirmedList.find((x) => x.member_id === key)
+                          if (p) handleKick(p)
+                        }}
+                        onRandom={handleRandomLolTeams}
+                        onSave={handleSaveLolTeams}
+                        saving={savingLolTeams}
+                        canManage={canManage}
+                        isClosed={isClosed}
+                        validationError={lolTeamError}
+                      />
+                    ) : (
+                      // 관리 권한이 없거나 종료된 내전은 읽기 전용 팀 구성만 보여준다.
+                      lolTeams.length > 0 && (
+                        <section className={`${CARD} p-5 sm:p-6`} aria-label="팀 구성">
+                          <h2 className={H2}>팀 구성</h2>
+                          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {([1, 2] as const).map((teamIndex) => {
+                              const rows = lolTeams
+                                .filter((t) => t.team_index === teamIndex && (t.member_id || t.guest_name))
+                                .sort((a, b) => {
+                                  if (!isRift) return 0
+                                  return LOL_POSITIONS.indexOf(a.position as (typeof LOL_POSITIONS)[number]) -
+                                    LOL_POSITIONS.indexOf(b.position as (typeof LOL_POSITIONS)[number])
+                                })
+                              const ts = TEAM_STYLES[teamIndex - 1]
+                              return (
+                                <div key={teamIndex} className={`rounded-2xl border p-3 sm:p-4 ${ts.bg}`}>
+                                  <div className="mb-3 flex items-center gap-2">
+                                    <span className={`h-2.5 w-2.5 rounded-full ${ts.dot}`} aria-hidden="true" />
+                                    <span className={`text-sm font-black ${ts.text}`}>{ts.label}</span>
+                                    <span className="ml-auto font-display text-xs font-bold tabular-nums text-muted">{rows.length}명</span>
+                                  </div>
+                                  <div className="flex flex-col gap-2">
+                                    {rows.length === 0 && <p className="text-xs text-subtle">미배정</p>}
+                                    {rows.map((t, i) => {
+                                      const name = t.member_id
+                                        ? confirmedList.find((p) => p.member_id === t.member_id)?.member_name
+                                          ?? waitlist.find((p) => p.member_id === t.member_id)?.member_name
+                                          ?? '알 수 없음'
+                                        : t.guest_name ?? '알 수 없음'
+                                      return (
+                                        <div key={`${t.member_id ?? t.guest_name}-${t.position ?? ''}`} className="flex items-center gap-2">
+                                          <span className={`w-12 shrink-0 rounded-lg py-1 text-center text-[11px] font-bold ${ts.pill}`}>
+                                            {isRift ? positionLabel(t.position) : `${i + 1}`}
+                                          </span>
+                                          <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-surface-raised px-2 py-1.5 ring-1 ring-line">
+                                            <span
+                                              aria-hidden="true"
+                                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
+                                                t.member_id ? 'bg-brand/15 text-brand-ink' : 'bg-warn/15 text-warn-ink'
+                                              }`}
+                                            >
+                                              {nameInitial(name)}
+                                            </span>
+                                            <span className="truncate text-sm font-bold text-fg">{name}</span>
+                                            {!t.member_id && t.guest_name && (
+                                              <span className="ml-auto shrink-0 rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">
+                                                외부인
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </section>
+                      )
+                    )}
+                  </>
+                )}
               </div>
 
-              {/* 대기 명단 */}
-              {waitlist.length > 0 && (
-                <div className="mb-8">
-                  <h2 className="text-xs font-black text-subtle tracking-widest uppercase mb-3">
-                    대기 명단 ({waitlist.length}명)
-                  </h2>
-                  <p className="text-xs text-faint mb-2">
-                    확정 인원이 취소하면 순번대로 자동 확정됩니다
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {waitlist.map((p) => renderParticipantRow(p, 'waitlist'))}
+              {/* ── 사이드: 관리 (모바일에서는 본문 아래) ── */}
+              {canManage && (
+                <section className={`${CARD} p-5 lg:col-start-2 lg:row-start-2`} aria-label="관리">
+                  <h2 className={H2}>관리</h2>
+                  <div className="mt-4 flex flex-col gap-2">
+                    {!isClosed && (
+                      <button
+                        type="button"
+                        onClick={handleOpenEdit}
+                        className={`${BTN_NEUTRAL} w-full`}
+                      >
+                        수정
+                      </button>
+                    )}
+                    {!isClosed && (
+                      <button
+                        type="button"
+                        onClick={handleEnd}
+                        disabled={ending || deleting}
+                        className={`${BTN_BASE} w-full bg-warn/12 text-warn-ink hover:bg-warn/20`}
+                      >
+                        {ending ? <><Spinner size={4} /> 종료 중...</> : '내전 종료'}
+                      </button>
+                    )}
                   </div>
-                </div>
+                  {/* 삭제는 종료된 내전에도 노출한다 — 위험 행동이라 시각적 강조를 낮춘다(확인 대화상자 유지). */}
+                  <div className={`${isClosed ? 'mt-3' : 'mt-4 border-t border-line pt-3'} flex justify-center`}>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting || ending}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-semibold text-danger-ink transition-colors hover:bg-danger/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50"
+                    >
+                      {deleting ? <><Spinner size={4} /> 삭제 중...</> : '내전 삭제'}
+                    </button>
+                  </div>
+                </section>
               )}
-
-              {/* 레거시 롤체(tft) 내전: 생성·기록 기능은 종료됐고 모집 정보만 표시한다. */}
-              {isTft && (
-                <p className="mb-8 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-subtle">
-                  롤체 내전(종료된 기능) — 기록 기능은 더 이상 제공되지 않습니다.
-                </p>
-              )}
-
-              {/* ── 롤 내전: 팀/포지션 배정 ───── */}
-              {isLol && (
-                <>
-                  {canManage && !isClosed ? (
-                    <LolTeamAssignPanel
-                      participants={lolParticipants}
-                      guests={lolPoolGuests}
-                      mode={isRift ? 'rift' : 'aram'}
-                      draft={lolDraft}
-                      onChange={setLolDraft}
-                      onGuestsChange={setLolPoolGuests}
-                      onKickMember={(key) => {
-                        const p = confirmedList.find((x) => x.member_id === key)
-                        if (p) handleKick(p)
-                      }}
-                      onRandom={handleRandomLolTeams}
-                      onSave={handleSaveLolTeams}
-                      saving={savingLolTeams}
-                      canManage={canManage}
-                      isClosed={isClosed}
-                      validationError={lolTeamError}
-                    />
-                  ) : (
-                    // 관리 권한이 없거나 종료된 내전은 읽기 전용 팀 구성만 보여준다.
-                    lolTeams.length > 0 && (
-                      <div className="mb-8">
-                        <h2 className="text-xs font-black text-subtle tracking-widest uppercase mb-3">팀 구성</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {([1, 2] as const).map((teamIndex) => {
-                            const rows = lolTeams
-                              .filter((t) => t.team_index === teamIndex && (t.member_id || t.guest_name))
-                              .sort((a, b) => {
-                                if (!isRift) return 0
-                                return LOL_POSITIONS.indexOf(a.position as (typeof LOL_POSITIONS)[number]) -
-                                  LOL_POSITIONS.indexOf(b.position as (typeof LOL_POSITIONS)[number])
-                              })
-                            const ts = teamIndex === 1
-                              ? { bg: 'bg-danger/10 border-danger/25', dot: 'bg-danger', text: 'text-danger-ink', label: '1팀 (블루)' }
-                              : { bg: 'bg-info/10 border-info/25', dot: 'bg-info', text: 'text-info-ink', label: '2팀 (레드)' }
-                            return (
-                              <div key={teamIndex} className={`rounded-xl border p-3 ${ts.bg}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${ts.dot}`} />
-                                  <span className={`text-[10px] font-black tracking-widest uppercase ${ts.text}`}>{ts.label}</span>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  {rows.length === 0 && <p className="text-xs text-faint">미배정</p>}
-                                  {rows.map((t) => (
-                                    <div key={`${t.member_id ?? t.guest_name}-${t.position ?? ''}`} className="flex items-center gap-2 text-sm">
-                                      {isRift && (
-                                        <span className="w-10 text-[10px] font-bold text-muted shrink-0">
-                                          {positionLabel(t.position)}
-                                        </span>
-                                      )}
-                                      <span className="font-bold text-fg">
-                                        {t.member_id
-                                          ? confirmedList.find((p) => p.member_id === t.member_id)?.member_name
-                                            ?? waitlist.find((p) => p.member_id === t.member_id)?.member_name
-                                            ?? '알 수 없음'
-                                          : t.guest_name ?? '알 수 없음'}
-                                      </span>
-                                      {!t.member_id && t.guest_name && (
-                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-warn/15 border border-warn/25 text-warn-ink">
-                                          외부인
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  )}
-                </>
-              )}
-
-              {!isTft && !isLol && (
-                <p className="text-sm text-faint">
-                  {gameKindLabel(game.game_kind, game.game_kind_label)} 내전은 모집·참가 관리만 지원합니다.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </main>
 

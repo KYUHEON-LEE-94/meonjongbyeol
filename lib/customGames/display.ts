@@ -230,6 +230,25 @@ export function toKstTimeInput(iso: string | null | undefined): string {
   return d ? TIME_INPUT_FMT.format(d) : ''
 }
 
+/**
+ * 시작까지 남은 시간(표시 전용): "25분 후" / "3시간 후" / "D-2"(KST 달력일 차).
+ * 일정이 없거나 이미 지났으면 null.
+ */
+export function formatTimeUntil(iso: string | null | undefined, now: number = Date.now()): string | null {
+  const d = toDate(iso)
+  if (!d) return null
+  const diffMs = d.getTime() - now
+  if (diffMs <= 0) return null
+  const minutes = Math.floor(diffMs / 60_000)
+  if (minutes < 60) return `${Math.max(1, minutes)}분 후`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}시간 후`
+  const days = Math.round(
+    (Date.parse(DATE_INPUT_FMT.format(d)) - Date.parse(DATE_INPUT_FMT.format(new Date(now)))) / 86_400_000,
+  )
+  return days <= 0 ? `${hours}시간 후` : `D-${days}`
+}
+
 export function todayKstDate(): string {
   return DATE_INPUT_FMT.format(new Date())
 }
