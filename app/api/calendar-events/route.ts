@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCalendarViewer } from '@/lib/calendar/viewer'
 import { daysInMonth, isRecord, parseEventInput } from '@/lib/calendar/events'
 import { isCheckViolation, isMissingColumnError, isMissingTableError } from '@/lib/db/pgErrors'
-import { gameKindLabel, lolModeLabel } from '@/lib/customGames/display'
+import { gameKindLabel, lolGameLabel } from '@/lib/customGames/display'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +29,7 @@ function customGameView(value: unknown) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date)
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
   const gameKind = typeof value.game_kind === 'string' ? value.game_kind : null
-  const gameLabel = gameKind === 'lol' ? `롤 · ${lolModeLabel(typeof value.lol_mode === 'string' ? value.lol_mode : null) || '협곡'}` : gameKindLabel(gameKind, typeof value.game_kind_label === 'string' ? value.game_kind_label : null)
+  const gameLabel = gameKind === 'lol' ? lolGameLabel(typeof value.lol_mode === 'string' ? value.lol_mode : null) : gameKindLabel(gameKind, typeof value.game_kind_label === 'string' ? value.game_kind_label : null)
   return { source: 'custom_game' as const, id: value.id, title: value.title, event_day: Number(part('day')), scheduled_at: value.scheduled_at, event_time: `${part('hour')}:${part('minute')}:00`, status: typeof value.status === 'string' ? value.status : '', game_label: gameLabel, href: `/custom-games/${value.id}`, can_manage: false }
 }
 function rowView(value: unknown): EventView | null {

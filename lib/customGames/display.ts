@@ -51,6 +51,20 @@ export function lolModeLabel(mode: string | null | undefined): string {
   return mode && mode in LOL_MODE_LABELS ? LOL_MODE_LABELS[mode as LolMode] : ''
 }
 
+/**
+ * 롤 내전의 "추가로 보여줄" 모드 배지. 협곡은 롤의 기본 모드라 '롤'과 중복되므로 빈 문자열이다.
+ * 기본이 아닌 모드(증바람)만 배지로 노출한다. 배지·칩 렌더는 이 함수가 빈 값이면 생략한다.
+ */
+export function lolModeBadge(mode: string | null | undefined): string {
+  return mode === 'rift' ? '' : lolModeLabel(mode)
+}
+
+/** 롤 내전 한 줄 라벨: 협곡(또는 미지정)='롤', 그 외='롤 · 증바람'. 알림·캘린더·상세 정보에서 공용. */
+export function lolGameLabel(mode: string | null | undefined): string {
+  const badge = lolModeBadge(mode)
+  return badge ? `롤 · ${badge}` : '롤'
+}
+
 /** 롤 티어별 텍스트 색. /lol 페이지 TIER_STYLES 와 같은 계열을 쓴다. */
 // palette: tier — 티어 고유색(화이트리스트). 실버·아이언만 중립 토큰.
 const LOL_TIER_TEXT: Record<string, string> = {

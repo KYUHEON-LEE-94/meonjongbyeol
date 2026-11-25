@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isMissingColumnError } from '@/lib/customGames/game'
 import { isMissingTableError } from '@/lib/db/pgErrors'
 import { sendDiscordWebhook, DISCORD_COLOR, type DiscordEmbed } from '@/lib/discord/notify'
-import { formatKstSchedule, gameKindLabel, lolModeLabel } from '@/lib/customGames/display'
+import { formatKstSchedule, gameKindLabel, lolGameLabel } from '@/lib/customGames/display'
 import { sendCustomGamePushReminders, type PushReminderResult } from '@/lib/push/sendGameReminders'
 import { ACTIVE_STATUSES } from '@/lib/customGames/constants'
 
@@ -144,7 +144,7 @@ export async function GET(req: Request) {
   for (const g of games) {
     const kindText =
       g.game_kind === 'lol'
-        ? `롤 · ${lolModeLabel(g.lol_mode) || '협곡'}`
+        ? lolGameLabel(g.lol_mode)
         : gameKindLabel(g.game_kind, g.game_kind_label)
 
     const embed: DiscordEmbed = {

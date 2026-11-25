@@ -14,7 +14,7 @@ import {
   formatKstSchedule,
   gameKindBadgeClass,
   gameKindLabel,
-  lolModeLabel,
+  lolModeBadge,
   openNativePicker,
   effectiveStatusBadgeClass,
   effectiveStatusLabel,
@@ -333,9 +333,9 @@ export default function CustomGamesPage() {
                       <Badge className={gameKindBadgeClass(g.game_kind)}>
                         {gameKindLabel(g.game_kind, g.game_kind_label)}
                       </Badge>
-                      {g.game_kind === 'lol' && g.lol_mode && (
+                      {g.game_kind === 'lol' && lolModeBadge(g.lol_mode) && (
                         <Badge className="bg-info/10 border-info/20 text-info-ink">
-                          {lolModeLabel(g.lol_mode)}
+                          {lolModeBadge(g.lol_mode)}
                         </Badge>
                       )}
                       <Badge className="bg-surface-2 border-line text-muted">

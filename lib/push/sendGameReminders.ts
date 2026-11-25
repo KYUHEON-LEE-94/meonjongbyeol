@@ -2,7 +2,7 @@ import 'server-only'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isMissingColumnError, isMissingTableError } from '@/lib/db/pgErrors'
 import { effectiveMemberCapacity, splitParticipants } from '@/lib/customGames/waitlist'
-import { formatKstSchedule, gameKindLabel, lolModeLabel } from '@/lib/customGames/display'
+import { formatKstSchedule, gameKindLabel, lolGameLabel } from '@/lib/customGames/display'
 import { isPushConfigured, sendPushToTargets, type PushTarget } from '@/lib/push/webPush'
 
 /**
@@ -140,7 +140,7 @@ export async function sendCustomGamePushReminders(now: Date): Promise<PushRemind
 
     const kindText =
       game.game_kind === 'lol'
-        ? `롤 · ${lolModeLabel(game.lol_mode) || '협곡'}`
+        ? lolGameLabel(game.lol_mode)
         : gameKindLabel(game.game_kind, game.game_kind_label)
 
     const result = await sendPushToTargets(targets, {

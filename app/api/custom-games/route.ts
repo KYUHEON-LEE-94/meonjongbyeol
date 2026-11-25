@@ -3,7 +3,7 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getViewerMember, canManageGame, isApprovedMember } from '@/lib/customGames/authorize'
 import { sendDiscordWebhook, DISCORD_COLOR } from '@/lib/discord/notify'
-import { formatKstSchedule, gameKindLabel, lolModeLabel } from '@/lib/customGames/display'
+import { formatKstSchedule, gameKindLabel, lolGameLabel } from '@/lib/customGames/display'
 import {
   GAME_COLUMNS,
   PRE_LOL_GAME_COLUMNS,
@@ -298,7 +298,7 @@ export async function POST(req: Request) {
   after(async () => {
     const kindText =
       kv.game_kind === 'lol'
-        ? `롤 · ${lolModeLabel(kv.lol_mode) || '협곡'}`
+        ? lolGameLabel(kv.lol_mode)
         : gameKindLabel(kv.game_kind, kv.game_kind_label)
     await sendDiscordWebhook([
       {

@@ -24,7 +24,8 @@ import {
   formatLolRankShort,
   formatTimeUntil,
   gameKindLabel,
-  lolModeLabel,
+  lolGameLabel,
+  lolModeBadge,
   lolTierClass,
   openNativePicker,
   positionLabel,
@@ -695,9 +696,7 @@ export default function CustomGameDetailPage() {
         {
           icon: 'game' as const,
           label: '게임',
-          value: isLol && game.lol_mode
-            ? `${gameKindLabel(game.game_kind, game.game_kind_label)} · ${lolModeLabel(game.lol_mode)}`
-            : gameKindLabel(game.game_kind, game.game_kind_label),
+          value: isLol ? lolGameLabel(game.lol_mode) : gameKindLabel(game.game_kind, game.game_kind_label),
         },
         {
           icon: 'users' as const,
@@ -752,8 +751,8 @@ export default function CustomGameDetailPage() {
               kicker={gameKindLabel(game.game_kind, game.game_kind_label)}
               badges={
                 <>
-                  {isLol && game.lol_mode && (
-                    <span className={HERO_CHIP}>{lolModeLabel(game.lol_mode)}</span>
+                  {isLol && lolModeBadge(game.lol_mode) && (
+                    <span className={HERO_CHIP}>{lolModeBadge(game.lol_mode)}</span>
                   )}
                   <span className={HERO_CHIP}>{effectiveStatusLabel(game.status, game.scheduled_at)}</span>
                 </>
