@@ -33,6 +33,7 @@ type SortKey = 'tier' | 'recent' | 'name'
 
 // ─── 티어 스타일 (도메인 색 — 로컬 상수 유지) ────────────────────────────────
 
+// palette: tier — 티어 고유색(화이트리스트). 실버·아이언만 중립 토큰.
 const TIER_BADGE: Record<string, { text: string; bg: string; dot: string }> = {
   CHALLENGER:  { text: 'text-yellow-300',  bg: 'bg-yellow-500/10 border border-yellow-500/20',  dot: 'bg-yellow-400'  },
   GRANDMASTER: { text: 'text-danger-ink',     bg: 'bg-red-500/10 border border-red-500/20',        dot: 'bg-red-400'     },
@@ -41,15 +42,15 @@ const TIER_BADGE: Record<string, { text: string; bg: string; dot: string }> = {
   EMERALD:     { text: 'text-ok-ink', bg: 'bg-emerald-500/10 border border-emerald-500/20', dot: 'bg-emerald-400' },
   PLATINUM:    { text: 'text-cyan-300',    bg: 'bg-cyan-500/10 border border-cyan-500/20',      dot: 'bg-cyan-400'    },
   GOLD:        { text: 'text-warn-ink',   bg: 'bg-amber-500/10 border border-amber-500/20',    dot: 'bg-amber-400'   },
-  SILVER:      { text: 'text-muted',   bg: 'bg-slate-400/10 border border-slate-400/20',    dot: 'bg-slate-400'   },
+  SILVER:      { text: 'text-muted',   bg: 'bg-muted/10 border border-muted/20',    dot: 'bg-muted'   },
   BRONZE:      { text: 'text-orange-300',  bg: 'bg-orange-500/10 border border-orange-500/20',  dot: 'bg-orange-400'  },
-  IRON:        { text: 'text-gray-300',    bg: 'bg-gray-500/10 border border-gray-500/20',      dot: 'bg-gray-400'    },
+  IRON:        { text: 'text-muted',    bg: 'bg-subtle/10 border border-subtle/20',      dot: 'bg-subtle'    },
 }
 
 const STATUS_BADGE: Record<MemberStatus, { label: string; cls: string }> = {
-  pending:  { label: '대기', cls: 'bg-amber-500/10 text-warn-ink border-amber-500/30' },
-  approved: { label: '승인', cls: 'bg-emerald-500/10 text-ok-ink border-emerald-500/30' },
-  rejected: { label: '거절', cls: 'bg-red-500/10 text-danger-ink border-red-500/30' },
+  pending:  { label: '대기', cls: 'bg-warn/10 text-warn-ink border-warn/30' },
+  approved: { label: '승인', cls: 'bg-ok/10 text-ok-ink border-ok/30' },
+  rejected: { label: '거절', cls: 'bg-danger/10 text-danger-ink border-danger/30' },
 }
 
 function TierBadge({
@@ -57,7 +58,7 @@ function TierBadge({
                    }: { tier: string | null; rank: string | null; lp: number | null }) {
   if (!tier) return <span className="text-xs text-faint italic">Unranked</span>
   const s = TIER_BADGE[tier.toUpperCase()] ?? {
-    text: 'text-subtle', bg: 'bg-slate-700/30 border border-slate-600/20', dot: 'bg-slate-600',
+    text: 'text-subtle', bg: 'bg-surface-2 border border-line', dot: 'bg-faint',
   }
   return (
       <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${s.bg} ${s.text}`}>
@@ -74,16 +75,16 @@ function StatusBadge({ status }: { status: MemberStatus }) {
 
 function LoginBadge({ linked, discord }: { linked: boolean; discord: boolean }) {
   if (linked) {
-    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-sky-500/10 text-sky-300 border-sky-500/30">로그인 연결됨</span>
+    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-info/10 text-info-ink border-info/30">로그인 연결됨</span>
   }
   if (discord) {
-    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-violet-500/10 text-violet-300 border-violet-500/30">Discord 사전등록</span>
+    return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-discord/10 text-brand-ink border-discord/30">Discord 사전등록</span>
   }
-  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-slate-700/30 text-subtle border-slate-600/30">미로그인</span>
+  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-surface-2 text-subtle border-line">미로그인</span>
 }
 
 function SyncFailBadge() {
-  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-red-500/10 text-danger-ink border-red-500/30">동기화 실패</span>
+  return <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-danger/10 text-danger-ink border-danger/30">동기화 실패</span>
 }
 
 function formatSyncTime(iso: string | null): string {
@@ -340,7 +341,7 @@ export default function AdminMemberSyncPage() {
               <option value="name">이름순</option>
             </select>
             <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted bg-surface border border-line cursor-pointer select-none">
-              <input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} className="accent-red-500" />
+              <input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} className="accent-danger" />
               실패만
             </label>
           </div>

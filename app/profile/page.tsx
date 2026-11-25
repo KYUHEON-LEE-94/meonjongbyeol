@@ -8,7 +8,7 @@ import { listRiotAccounts, pickPrimaryAccount } from '@/lib/members/primaryAccou
 import { withAvatarColumn } from '@/lib/members/avatar'
 import MemberSelfForm, { type RiotAccountView } from './MemberSelfForm'
 import { CARD, CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import ProfileChecklist from '@/app/components/ProfileChecklist'
 import ProfileCustomization from './ProfileCustomization'
 
@@ -123,12 +123,11 @@ export default async function ProfilePage() {
     return (
         <div className={SHELL}>
             <div className={CONTAINER}>
-                <PageHeader
+                <HeroBanner
                     kicker="Profile"
-                    accent="indigo"
                     title="프로필 관리"
                     description="공개 프로필과 칭호, 꾸미기 아이템을 한곳에서 관리하세요."
-                    className="mb-6"
+                    className="mb-8"
                 />
 
                 <div className="grid gap-6">

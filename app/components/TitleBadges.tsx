@@ -16,12 +16,12 @@ export default function TitleBadges({
       {titles.slice(0, 3).map((title) => (
         <span
           key={title.id}
-          className={`inline-flex min-w-0 max-w-full items-center rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-warn-ink shadow-sm backdrop-blur-sm ${
+          className={`inline-flex min-w-0 max-w-full items-center rounded-full border border-warn/30 bg-warn/10 font-black text-warn-ink shadow-sm backdrop-blur-sm ${
             compact ? 'px-1.5 py-0.5 text-[9px] leading-none sm:text-[10px]' : 'px-2 py-1 text-[11px] leading-none'
           }`}
           title={title.label}
         >
-          <span aria-hidden className="mr-1 text-amber-400">✦</span>
+          <span aria-hidden className="mr-1 text-warn-ink">✦</span>
           <span className="truncate">{title.label}</span>
         </span>
       ))}

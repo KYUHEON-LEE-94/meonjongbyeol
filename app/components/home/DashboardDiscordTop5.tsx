@@ -6,7 +6,7 @@ export type DiscordTop5Entry = {
   voiceLabel: string
 }
 
-const MEDALS = ['bg-amber-400/20 text-amber-600', 'bg-slate-300/25 text-slate-500', 'bg-orange-400/20 text-orange-600']
+const MEDALS = ['bg-star/25 text-warn-ink', 'bg-surface-2 text-muted', 'bg-warn/15 text-warn-ink']
 
 /** 대시보드 우측: 최근 7일 Discord 음성 활동 TOP5. 훅 없는 순수 컴포넌트라 서버에서 렌더한다. */
 export default function DashboardDiscordTop5({ entries }: { entries: DiscordTop5Entry[] }) {

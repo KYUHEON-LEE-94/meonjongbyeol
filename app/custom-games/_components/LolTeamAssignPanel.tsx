@@ -46,8 +46,8 @@ export const EMPTY_LOL_DRAFT: LolTeamDraft = [
 ]
 
 const TEAM_STYLES = [
-  { bg: 'bg-rose-500/5 border-rose-500/25', dot: 'bg-rose-500', text: 'text-danger-ink', label: '1팀 (블루)' },
-  { bg: 'bg-sky-500/5 border-sky-500/25', dot: 'bg-sky-500', text: 'text-sky-400', label: '2팀 (레드)' },
+  { bg: 'bg-info/5 border-info/25', dot: 'bg-info', text: 'text-info-ink', label: '1팀 (블루)' },
+  { bg: 'bg-danger/5 border-danger/25', dot: 'bg-danger', text: 'text-danger-ink', label: '2팀 (레드)' },
 ]
 
 // 드래그 대상을 하나의 값으로 통일한다.
@@ -61,7 +61,7 @@ function CardInner({ card }: { card: Card }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1.5">
       {card.kind === 'member' && card.isHost && (
-        <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/25 text-brand-ink">
+        <span className="shrink-0 text-[9px] font-black px-1 py-0.5 rounded bg-brand/15 border border-brand/25 text-brand-ink">
           주최
         </span>
       )}
@@ -71,7 +71,7 @@ function CardInner({ card }: { card: Card }) {
           {formatLolRankShort(card.tier, card.rank, card.lp)}
         </span>
       ) : (
-        <span className="ml-auto shrink-0 rounded bg-amber-500/15 border border-amber-500/25 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">
+        <span className="ml-auto shrink-0 rounded bg-warn/15 border border-warn/25 px-1.5 py-0.5 text-[10px] font-black text-warn-ink">
           외부인
         </span>
       )}
@@ -285,7 +285,7 @@ export default function LolTeamAssignPanel({
             disabled={saving || !canRandom}
             title={canRandom ? undefined : `확정 ${LOL_CAPACITY}명이어야 랜덤 배정할 수 있습니다`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-              bg-sky-500/10 border border-sky-500/25 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300
+              bg-info/10 border border-info/25 text-info-ink hover:bg-info/20 hover:text-info-ink
               disabled:opacity-40 disabled:cursor-not-allowed"
           >
             랜덤 배정

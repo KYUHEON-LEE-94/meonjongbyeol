@@ -20,6 +20,7 @@ type GameForm = { title: string; date: string; time: string; capacity: number; g
 type CalendarCell = { year: number; month: number; day: number; isCurrentMonth: boolean }
 
 const LABEL: Record<EventType, string> = { birthday: '생일', anniversary: '기념일', event: '일정' }
+// palette: calendar — 이벤트 종류 고유색(화이트리스트). dark: 는 data-theme 에 연결돼 있다.
 const CHIP: Record<EventType, string> = { birthday: 'border-pink-400/25 bg-pink-400/10 text-pink-700 dark:text-pink-300', anniversary: 'border-violet-400/25 bg-violet-400/10 text-violet-700 dark:text-violet-300', event: 'border-sky-400/25 bg-sky-400/10 text-sky-700 dark:text-sky-300' }
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -177,7 +178,7 @@ export default function HomeCalendar() {
     >
       <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black ${isToday ? 'bg-brand text-white shadow-sm' : !cell.isCurrentMonth ? 'text-faint' : weekday === 0 ? 'text-danger-ink' : weekday === 6 ? 'text-brand-ink' : 'text-muted'}`}>{cell.day}</span>
       {cell.isCurrentMonth && <div className="mt-1 space-y-1">{events.slice(0, maxPerCell).map((event) => {
-        if (event.source === 'custom_game') return <Link key={`game-${event.id}`} href={event.href} onClick={(clickEvent) => clickEvent.stopPropagation()} title={`${event.event_time.slice(0, 5)} · ${event.game_label} · ${event.title}`} className="block w-full truncate rounded border border-amber-400/30 bg-amber-400/10 px-1 py-1 text-left text-[9px] font-bold leading-tight text-warn-ink sm:px-1.5 sm:text-[11px]">⚔ {event.event_time.slice(0, 5)} {event.title}</Link>
+        if (event.source === 'custom_game') return <Link key={`game-${event.id}`} href={event.href} onClick={(clickEvent) => clickEvent.stopPropagation()} title={`${event.event_time.slice(0, 5)} · ${event.game_label} · ${event.title}`} className="block w-full truncate rounded border border-warn/30 bg-warn/10 px-1 py-1 text-left text-[9px] font-bold leading-tight text-warn-ink sm:px-1.5 sm:text-[11px]">⚔ {event.event_time.slice(0, 5)} {event.title}</Link>
         const editable = event.can_manage
         return <button key={`event-${event.id}`} type="button" disabled={!editable} onClick={(clickEvent) => { clickEvent.stopPropagation(); if (editable) openEdit(event) }} title={`${LABEL[event.event_type]} · ${event.member_name} · ${event.title}`} className={`block w-full truncate rounded border px-1 py-1 text-left text-[9px] font-bold leading-tight sm:px-1.5 sm:text-[11px] ${CHIP[event.event_type]} disabled:cursor-default`}>{event.event_type === 'event' && !event.is_all_day ? `${event.event_time?.slice(0, 5)} ` : ''}{event.title}</button>
       })}{events.length > maxPerCell && <p className="truncate px-1 text-[9px] font-bold text-subtle">+{events.length - maxPerCell}개</p>}</div>}
@@ -212,7 +213,7 @@ export default function HomeCalendar() {
       </div>
       {loading && <p className="border-t border-line px-5 py-3 text-xs text-subtle">일정을 불러오는 중…</p>}
     </>}
-    {expanded && <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="calendar-expanded-title" onMouseDown={(e) => { if (e.target === e.currentTarget) closeExpanded() }}>
+    {expanded && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="calendar-expanded-title" onMouseDown={(e) => { if (e.target === e.currentTarget) closeExpanded() }}>
       <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-line bg-panel shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
           <h3 id="calendar-expanded-title" className="min-w-0 truncate text-lg font-black text-fg">멤버 일정 · {view.year}년 {view.month}월</h3>

@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
                     type="button"
                     onClick={handleDiscordLogin}
                     disabled={loading}
-                    className="w-full rounded bg-[#5865F2] py-2 text-sm font-medium text-white hover:bg-[#4752c4] disabled:opacity-60"
+                    className="w-full rounded bg-discord py-2 text-sm font-medium text-white hover:bg-discord-hover disabled:opacity-60"
                 >
                     {loading ? '디스코드로 이동 중…' : '디스코드로 로그인'}
                 </button>

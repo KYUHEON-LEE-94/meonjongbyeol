@@ -152,7 +152,7 @@ function Body({ state }: { state: LoadState }) {
                 </p>
               </div>
               {m.game_name && (
-                <span className="shrink-0 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-ok-ink">
+                <span className="shrink-0 rounded-md border border-ok/40 bg-ok/10 px-2 py-1 text-[11px] font-bold text-ok-ink">
                   게임 중
                 </span>
               )}
@@ -186,7 +186,7 @@ function Avatar({ member }: { member: PresenceMember }) {
       </div>
       <span
         aria-hidden
-        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-emerald-400"
+        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-ok"
       />
     </div>
   )

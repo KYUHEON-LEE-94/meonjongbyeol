@@ -146,7 +146,7 @@ export default function SharedWithMe() {
           onClick={() => setMultiplayerOnly((v) => !v)}
           className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-colors ${
             multiplayerOnly
-              ? 'border-emerald-500/40 bg-emerald-500/10 text-ok-ink'
+              ? 'border-ok/40 bg-ok/10 text-ok-ink'
               : 'border-line bg-surface text-muted hover:text-fg'
           }`}
         >

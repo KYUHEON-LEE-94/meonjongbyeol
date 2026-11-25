@@ -1,5 +1,5 @@
 import { SHELL, CONTAINER } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import ShopClient from './ShopClient'
 
 // 개인화 데이터(잔액/보유/내역)는 클라 아일랜드가 force-dynamic API 로 가져온다.
@@ -10,9 +10,8 @@ export default function ShopPage() {
   return (
     <div className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="Shop"
-          accent="amber"
           title="포인트 상점"
           description="포인트로 프로필 프레임과 랭킹 카드 배경을 구매하고 장착하세요."
           className="mb-8"

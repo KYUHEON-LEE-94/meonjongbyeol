@@ -200,7 +200,7 @@ export default function SteamGamePicker({ value, onChange, disabled }: Props) {
   return (
     <div className="mt-2 space-y-2">
       {value.label ? (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-2">
+        <div className="flex items-center gap-3 rounded-xl border border-ok/30 bg-ok/[0.07] p-2">
           {value.appId !== null && (
             <div className="relative h-[32px] w-[84px] shrink-0 overflow-hidden rounded-md border border-line bg-surface-2">
               <SteamThumb appid={value.appId} name={value.label} />
@@ -253,7 +253,7 @@ export default function SteamGamePicker({ value, onChange, disabled }: Props) {
                 disabled={disabled}
                 className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-50 ${
                   multiplayerOnly
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-ok-ink'
+                    ? 'border-ok/40 bg-ok/10 text-ok-ink'
                     : 'border-line bg-surface text-muted'
                 }`}
               >

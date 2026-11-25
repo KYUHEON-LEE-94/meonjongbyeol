@@ -129,6 +129,7 @@ export default function CosmeticPreviewModal({
                     <div className="absolute inset-0 bg-gradient-to-r from-panel/88 from-28% via-panel/30 via-50% to-panel/88 to-74%" />
                   </div>
                 )}
+                {/* palette: cosmetic — 랭킹 1위 메달 고유색(화이트리스트) */}
                 <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-gradient-to-b from-yellow-400 to-amber-500 opacity-70" />
 
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 text-xs font-black text-white shadow-md shadow-amber-500/40 ring-1 ring-yellow-300/60">

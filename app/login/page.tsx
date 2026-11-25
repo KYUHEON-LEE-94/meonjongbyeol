@@ -1,12 +1,12 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import Image from 'next/image'
+import BrandSticker from '@/app/components/ui/BrandSticker'
 import { supabaseClient } from '@/lib/supabase'
 import { sanitizeNextPath } from '@/lib/auth/discord'
 import { GUILD_GATE_ID } from '@/lib/constants/features'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ALERT, CARD } from '@/lib/ui/styles'
+import { ALERT, CARD, HERO } from '@/lib/ui/styles'
 
 function DiscordIcon() {
   return (
@@ -79,29 +79,29 @@ function LoginInner() {
   }
 
   return (
-      <div className="relative min-h-screen overflow-hidden bg-canvas px-4 py-12 sm:py-16 flex items-center justify-center">
+      <div className="relative min-h-dvh overflow-hidden bg-canvas px-4 py-6 sm:px-6 sm:py-10 lg:grid lg:grid-cols-2 lg:gap-8 lg:p-8">
         {/* 배경 장식 — 브랜드 컬러 글로우(테마 토큰 기반, 은은하게) */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-brand/15 blur-3xl" />
-          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
         </div>
 
-        <div className="relative w-full max-w-md">
-          {/* 브랜드 히어로 */}
-          <div className="mb-8 text-center">
-            <Image
-                src="/images/brand/meonjongbyeol.png"
-                alt="먼종별 — 먼가 종겜하는 별난 것들"
-                width={160}
-                height={160}
-                priority
-                className="mx-auto mb-4 h-40 w-40 rounded-3xl bg-white object-contain shadow-xl ring-1 ring-line"
-            />
-            <h1 className="text-3xl font-black tracking-tight text-fg">먼종별</h1>
-            <p className="mt-1 text-sm font-bold text-warn-ink">먼가 종겜하는 별난 것들</p>
-            <p className="mt-2 text-sm text-muted">종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹</p>
+        {/* 브랜드 히어로 패널 */}
+        <section className={`${HERO} mx-auto mb-6 w-full max-w-md px-6 py-8 sm:px-10 sm:py-10 lg:mb-0 lg:flex lg:max-w-none lg:flex-col lg:justify-center lg:px-14`}>
+          <span className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" aria-hidden />
+          <span className="pointer-events-none absolute -bottom-24 left-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" aria-hidden />
+          <div className="relative flex items-center gap-5 lg:flex-col lg:items-start lg:gap-8">
+            <BrandSticker size="hero-lg" priority />
+            <div>
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Welcome</p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-white lg:text-5xl">먼종별</h1>
+              <p className="mt-1 text-sm font-bold text-white/90 lg:text-base">먼가 종겜하는 별난 것들</p>
+              <p className="mt-2 text-sm text-white/85">종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹</p>
+            </div>
           </div>
+        </section>
 
+        <div className="relative mx-auto flex w-full max-w-md flex-col justify-center">
           <div className={`${CARD} p-7 sm:p-8`}>
             <h2 className="text-lg font-black text-fg">로그인하고 시작하기</h2>
             <p className="mt-1 text-sm text-muted">Discord 계정 하나면 아래 기능을 모두 이용할 수 있어요.</p>
@@ -109,7 +109,7 @@ function LoginInner() {
             {/* 기능 소개 */}
             <ul className="mt-5 grid grid-cols-2 gap-2">
               {LOGIN_FEATURES.map((feature) => (
-                  <li key={feature.title} className="flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 p-3">
+                  <li key={feature.title} className="flex items-start gap-2.5 rounded-2xl bg-surface-2 p-3">
                     <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10">
                       <FeatureIcon path={feature.path} />
                     </span>
@@ -131,7 +131,7 @@ function LoginInner() {
                 type="button"
                 onClick={handleDiscordLogin}
                 disabled={loading}
-                className="mt-5 w-full flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-xl font-bold text-white bg-[#5865F2] hover:bg-[#4752c4] shadow-lg shadow-[#5865F2]/25 transition disabled:opacity-60"
+                className="mt-5 w-full min-h-11 flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-2xl font-bold text-white bg-discord hover:bg-discord-hover shadow-lg shadow-discord/25 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-60"
             >
               <DiscordIcon />
               {loading ? '디스코드로 이동 중...' : '디스코드로 로그인'}

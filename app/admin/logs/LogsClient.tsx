@@ -28,9 +28,9 @@ function ago(iso: string | null): string {
 }
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  success: { label: '성공', cls: 'text-ok-ink bg-emerald-500/10 border-emerald-500/25' },
+  success: { label: '성공', cls: 'text-ok-ink bg-ok/10 border-ok/25' },
   skipped: { label: '스킵', cls: 'text-muted bg-surface-2 border-line' },
-  error: { label: '실패', cls: 'text-danger-ink bg-red-500/10 border-red-500/25' },
+  error: { label: '실패', cls: 'text-danger-ink bg-danger/10 border-danger/25' },
 }
 
 export default function LogsClient() {
@@ -65,7 +65,7 @@ export default function LogsClient() {
         </button>
       </header>
 
-      {err && <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-danger-ink">{err}</div>}
+      {err && <div className="rounded-xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger-ink">{err}</div>}
 
       {/* 요약 */}
       {s && (
@@ -75,7 +75,7 @@ export default function LogsClient() {
             <div className="mt-1 text-lg font-black text-fg">{ago(s.last_synced_at) || '기록 없음'}</div>
             <div className="text-[11px] text-faint">{fmt(s.last_synced_at)}</div>
           </div>
-          <div className={`rounded-2xl border p-4 ${s.stale_count > 0 ? 'border-red-500/30 bg-red-500/10' : 'border-line bg-surface'}`}>
+          <div className={`rounded-2xl border p-4 ${s.stale_count > 0 ? 'border-danger/30 bg-danger/10' : 'border-line bg-surface'}`}>
             <div className="text-xs text-muted">{s.stale_hours}시간 이상 미동기화</div>
             <div className={`mt-1 text-lg font-black ${s.stale_count > 0 ? 'text-danger-ink' : 'text-ok-ink'}`}>{s.stale_count}명 / {s.approved_count}명</div>
             <div className="text-[11px] text-faint">{s.stale_count > 0 ? '아래 목록 확인' : '모두 최신'}</div>
@@ -93,7 +93,7 @@ export default function LogsClient() {
 
       {/* 지연 멤버 */}
       {stale.length > 0 && (
-        <section className="rounded-2xl border border-red-500/25 bg-surface p-4">
+        <section className="rounded-2xl border border-danger/25 bg-surface p-4">
           <div className="mb-2 text-sm font-black text-danger-ink">지연 멤버</div>
           <div className="flex flex-wrap gap-2">
             {stale.map((m) => (

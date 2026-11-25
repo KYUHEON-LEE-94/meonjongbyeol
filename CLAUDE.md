@@ -32,14 +32,25 @@ app/
   page.tsx                      # 홈 대시보드 (모집 중 내전·디스코드 TOP5·스팀 접속 중·캘린더·새 소식). ISR 60s, ⚠ 세션 접근 금지
   discord/page.tsx              # 디스코드 활동 (최근 30일, approved 매칭). ISR 300s, ⚠ 세션 접근 금지
   lol/page.tsx                  # 롤 솔로랭크 랭킹 (members 캐시 + 장착 칭호). ISR 60s
-  layout.tsx                    # 루트 레이아웃
+  layout.tsx                    # 루트 레이아웃 (<AppShell>로 children 감쌈, Poppins → --font-display)
   manifest.ts                   # PWA manifest (Next 규약 → /manifest.webmanifest)
   components/                   # 공용 컴포넌트
-    AuthButtons.tsx             # 로그인/로그아웃/관리자 버튼
+    AppShell.tsx                # 'use client'. 숨김 경로 판정 → 사이드바·상단바·탭바 + lg:pl-64. useViewer/usePointBalance 단 1회 호출
+    AuthButtons.tsx             # 프로필 버튼·드롭다운(표시 전용, viewer props). variant 'avatar' | 'sidebar-card'
+    nav/navItems.ts             # NAV_ITEMS·HIDDEN_PREFIXES(/admin,/login,/auth,/og)·isActive — 내비 단일 소스
+    nav/NavIcon.tsx             # 인라인 SVG 내비 아이콘
+    nav/useViewer.ts            # 세션·관리자 판정(/api/admin/me)·로그아웃(cleanupPushSubscription → signOut) 훅
+    nav/usePointBalance.ts      # 포인트 잔액·내역 + 출석 POST(로드당 1회) 훅
+    nav/PointBalance.tsx        # 포인트 칩 + 내역 드롭다운 (표시 전용)
+    nav/Sidebar.tsx             # lg+ 고정 사이드바 (w-64)
+    nav/MobileTopBar.tsx        # lg 미만 상단바 (햄버거·포인트·테마·아바타)
+    nav/MobileTabBar.tsx        # lg 미만 하단 탭바 (홈·내전·스팀·롤)
+    nav/DesktopTopbar.tsx       # lg+ 본문 상단 "Hi 이름," + 섹션 라벨(h1 아님)
     PwaServiceWorker.tsx        # /sw.js 등록 (Client, 세션 미접근·렌더 없음). 루트 레이아웃에 삽입
     PushNotifyToggle.tsx        # 웹 푸시 구독 토글 + iOS 설치 안내 (Client). 내전 상세에 배치
     Spinner.tsx                 # 로딩 스피너
-    ui/PageHeader.tsx           # kicker + h1 + 설명. **순수 서버 컴포넌트**('use client' 금지 — /steam ISR)
+    ui/HeroBanner.tsx           # 보라 그라데이션 히어로(kicker + h1 + 설명 + stats + action + 캐릭터). **순수 컴포넌트**('use client'·세션 금지 — ISR)
+    ui/BrandSticker.tsx         # 먼종별 캐릭터 흰 스티커 카드(next/image). **순수 컴포넌트**('use client' 금지)
     ui/SectionHeader.tsx        # h2 + 힌트
     ui/EmptyState.tsx           # 빈 상태 카드
     home/HomeNews.tsx           # 새 소식 탭(롤 패치 노트 · 스팀 할인)
@@ -228,9 +239,9 @@ SITE_URL=                           # OG 절대 URL 기준(metadataBase). 미설
   `lib/push/webPush.ts` 는 `import 'server-only'` — 개인키가 클라 번들에 새면 안 된다.
 
 **PWA:** `app/manifest.ts`(→ `/manifest.webmanifest`) + `public/sw.js` + `app/components/PwaServiceWorker.tsx`.
-아이콘은 `npm run gen:pwa-icons`(sharp 는 next 전이 의존 — 런타임 의존성 추가 0)로 `public/images/logo2.png`
-에서 생성해 `public/icons/` 에 **커밋**한다(생성물 커밋 패턴).
-`public/images/logo*.png` 원본은 덮어쓰지 않는다.
+아이콘은 `npm run gen:pwa-icons`(sharp 는 next 전이 의존 — 런타임 의존성 추가 0)로 `public/images/brand/meonjongbyeol.png`
+(먼종별 컨셉 이미지)에서 생성해 `public/icons/`·`app/icon.png`·`app/apple-icon.png` 에 **커밋**한다(생성물 커밋 패턴).
+원본 이미지는 덮어쓰지 않는다. 작은 크기(파비콘·배지)는 캐릭터 얼굴만 크롭한다.
 
 > **proxy 무수정:** `proxy.ts` matcher 의 "확장자 있는 요청 제외" 규칙 덕에 `/sw.js`,
 > `/manifest.webmanifest`, `/icons/*.png` 는 미로그인에서도 200 이다.
@@ -247,7 +258,7 @@ Safari 탭에는 `window.PushManager` 자체가 없다. `PushNotifyToggle` 이 `
 
 - **켜기 POST 실패 시 이번 호출이 새로 만든 구독만 롤백(`unsubscribe`)한다** — 서버에 없는 로컬 구독이
   남으면 토글은 켜져 보이는데 알림은 오지 않는다.
-- **로그아웃 시 구독 해제:** `AuthButtons` 가 `signOut` **전에** `cleanupPushSubscription()` 을 호출한다
+- **로그아웃 시 구독 해제:** `useViewer().logout`(`app/components/nav/useViewer.ts`)이 `signOut` **전에** `cleanupPushSubscription()` 을 호출한다
   (서버 DELETE 가 세션의 `member_id` 조건이라 signOut 뒤에는 지울 수 없다). `serviceWorker.ready` 는
   등록 실패 시 영원히 pending 이므로 `getRegistration()` 만 쓴다. 실패·타임아웃이어도 로그아웃은 진행한다.
 
@@ -285,6 +296,41 @@ Riot 키는 `RIOT_LOL_API_KEY` **하나만** 쓴다(`RIOT_API_KEY`·`RIOT_TFT_*`
 
 **최초 동기화 전까지 `/lol`은 빈 상태(EmptyState)가 정상이다.**
 
+## 디자인 시스템
+
+Unity Dashboard "Elegant Dark" 톤의 **보라 다크**(기본 OS 추종) + **라벤더 라이트**. 토글은 `ThemeToggle`(html `data-theme`).
+
+**토큰 규칙:** `app/globals.css`의 `@theme`(inline 금지)에 이름만 등록하고, 실제 값은 `:root,[data-theme='light']`와
+`[data-theme='dark']`에서 정의한다. **새 토큰은 세 곳 모두에 추가한다**(`:root`는 FOUC 폴백).
+`dark:` variant는 `@custom-variant dark`로 `data-theme=dark`에 연결돼 있다(OS 설정이 아니다).
+globals.css 주석에 임의값 대괄호 클래스 표기를 적지 않는다(Tailwind가 주석도 스캔한다).
+
+| 역할 | 토큰 |
+|---|---|
+| 배경/면 | `canvas` · `surface` · `surface-2` · `surface-raised` · `panel` · `sidebar` · `line` · `line-strong` · `shadow` |
+| 텍스트 | `fg` > `muted` > `subtle` > `faint`(**장식 전용, 본문 금지**) |
+| 역할 필/글자 | `brand`/`brand-ink` · `ok`/`ok-ink` · `warn`/`warn-ink` · `danger`/`danger-ink` · `info`/`info-ink` |
+| 장식 | `accent`(알림 점 — **위에 흰 글자 금지**) · `star`(별) · `hero-from/via/to`(히어로 그라데이션) · `discord`/`discord-hover` |
+
+**대비 규칙:** 흰 글자 필은 `bg-brand`(#6C5DD3, 약 5.1:1)만. 히어로 위 텍스트는 흰색 투명도 80% 이상.
+포커스 링(`focus-visible:ring-brand/40`)은 지우지 않는다. 숫자·라틴 헤드라인만 `font-display`(Poppins), 한글은 시스템 고딕.
+
+**하드코딩 금지:** `indigo|slate|gray|zinc|neutral|stone-NNN` 팔레트와 대괄호 hex 임의값 색 클래스는 0건이어야 한다. `violet|purple|yellow|blue|cyan|orange|sky|emerald|red|amber|rose|pink`는
+고유 의미색 화이트리스트에서만 쓰고 맵 위에 `// palette: tier|calendar|cosmetic` 주석을 단다:
+`lib/customGames/display.ts` LOL_TIER_TEXT, `app/lol/page.tsx` TIER_STYLES, `app/admin/members/sync/page.tsx` TIER_BADGE,
+`app/components/calendar/HomeCalendar.tsx` CHIP, `app/shop/CosmeticPreviewModal.tsx` 메달, `globals.css` 코스메틱 효과.
+공통 className은 `lib/ui/styles.ts`(CARD·PANEL·INPUT·BTN_*·HERO·BTN_ON_HERO·STAT_*·LIST_*·PILL*·NAV_*)를 우선 쓴다.
+
+**내비 구조:** lg+ = 왼쪽 고정 `Sidebar`(z-40) + 본문 `DesktopTopbar`. lg 미만 = `MobileTopBar`(sticky, z-50) + `MobileTabBar`(fixed bottom, z-40).
+모달은 z-50 이상. 숨김 경로(`/admin`·`/login`·`/auth`·`/og`) 판정은 `nav/navItems.ts`의 `isNavHidden()` 한 곳 — 여기서는 `lg:pl-64`도 주지 않는다.
+**`useViewer()`·`usePointBalance()`는 `AppShell`에서 단 1회만 호출하고 props로 내린다** — 사이드바·상단바가 CSS로만 숨겨져
+동시에 마운트되므로 각자 호출하면 `/api/admin/me`·출석 POST·`onAuthStateChange`가 2배가 된다.
+탭바가 `lg:hidden`이므로 `SHELL`·`TABBAR_SAFE_PB`의 하단 여백도 lg 기준이다. 페이지는 자체 sticky 헤더를 두지 않는다.
+
+**캐릭터:** `public/images/brand/meonjongbyeol.png`는 흰 배경 불투명 PNG다. 배경 제거·mix-blend를 시도하지 말고
+`BrandSticker`(흰 스티커 카드)로만 쓴다. `HeroBanner`의 `priority`는 첫 화면이 배너인 홈·온보딩만.
+`HeroBanner`/`BrandSticker`는 ISR 페이지에서도 import 되므로 `'use client'`·훅·세션 접근 금지, `stats`에는 공개 집계만 넘긴다.
+
 ## Supabase 클라이언트 사용 규칙
 
 | 클라이언트 | import 위치 | 사용처 |
@@ -312,7 +358,7 @@ RLS가 없으면 누구나 anon 키로 테이블을 직접 읽고 쓸 수 있다
   (`admins`는 공개 select 정책조차 두지 않는다 — 관리자 명단은 anon 에게 노출되면 안 된다.)
 - **service role**(`supabaseService`/`supabaseAdmin`)은 RLS를 우회하므로 서버 라우트·Server Action·Sync는 무영향.
 - **`admins`는 브라우저에서 직접 읽지 않는다.** 관리자 판정은 서버 라우트 `GET /api/admin/me`로만 한다
-  (`AuthButtons.tsx`가 `res.ok && body.ok === true`로 판정). `admins`에 직접 쿼리하지 말 것.
+  (`app/components/nav/useViewer.ts`가 `res.ok && body.ok === true`로 판정). `admins`에 직접 쿼리하지 말 것.
 
 > **새 public 테이블 추가 시 규칙:** 반드시 `enable row level security`를 켜고,
 > 공개 페이지가 anon으로 읽어야 하면 `for select ... using(true)` 정책을 준다(쓰기 정책은 만들지 않는다).
@@ -850,3 +896,4 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
 | 2026-09-09 | 주간 랭크 리포트 | `lib/discord/weeklyReport.ts`, `/api/cron/weekly-rank-report`, `/api/admin/weekly-rank-report` | 매주 월요일 지난 주 랭크 요약 디스코드 자동 발송(단일행 CAS 멱등) |
 | 2026-10-08 | 동기화·내전 백엔드 정비 | `lib/sync/*`, `sync-all`, `members/[id]/sync`, `custom-games`, `notify-reminders` | TOP5 반복 발송·재시도 prev 오염·동시 실행·리마인더 재무장·목록 무제한 조회 |
 | 2026-11-25 | 먼종별 리모델링 | 전체 (TFT·명예의 전당·시즌·주간 리포트 삭제, `lib/riot/*`, `lib/sync/doSyncMember.ts`, 홈·`/discord`·`SiteNav`) | 종겜방 '먼종별'로 리브랜딩, LoL 키 단일화(lol_puuid), 홈을 내전·스팀·디스코드 중심으로 재구성. DB DROP 없음 |
+| 2026-11-25 | 디자인 리뉴얼(보라 다크) | globals.css, styles.ts, AppShell·nav/*, HeroBanner, 전 페이지 | Unity Dashboard 톤, PC 사이드바, 캐릭터 히어로 배너. 로직·API·DB 무변경 |

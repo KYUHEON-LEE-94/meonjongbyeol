@@ -29,7 +29,7 @@ const inputCls = `
   w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
   bg-surface-2 border border-line
   placeholder:text-faint
-  focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5
+  focus:outline-none focus:border-brand/50 focus:bg-brand/5
   transition-all duration-200
 `
 
@@ -82,9 +82,9 @@ function MemberAvatar({ member }: { member: MemberListItem }) {
 type Tab = 'pending' | 'all'
 
 const STATUS_BADGE: Record<MemberStatus, { label: string; cls: string }> = {
-  pending: { label: '대기', cls: 'bg-amber-500/10 text-warn-ink border-amber-500/30' },
-  approved: { label: '승인', cls: 'bg-emerald-500/10 text-ok-ink border-emerald-500/30' },
-  rejected: { label: '거절', cls: 'bg-red-500/10 text-danger-ink border-red-500/30' },
+  pending: { label: '대기', cls: 'bg-warn/10 text-warn-ink border-warn/30' },
+  approved: { label: '승인', cls: 'bg-ok/10 text-ok-ink border-ok/30' },
+  rejected: { label: '거절', cls: 'bg-danger/10 text-danger-ink border-danger/30' },
 }
 
 const DELETE_WARNING = [
@@ -283,7 +283,7 @@ export default function AdminMemberControlPage() {
               </Field>
 
               <div className="pt-2 flex flex-col gap-2">
-                <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all">
+                <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-sm font-black text-white bg-brand hover:bg-brand/90 shadow-lg shadow-brand/20 disabled:opacity-50 transition-all">
                   {loading ? '처리 중...' : editingId ? '정보 수정하기' : '멤버 등록하기'}
                 </button>
                 {editingId && (
@@ -294,8 +294,8 @@ export default function AdminMemberControlPage() {
               </div>
             </form>
 
-            {message && <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-ok-ink text-xs font-bold">{message}</div>}
-            {error && <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-danger-ink text-xs font-bold">{error}</div>}
+            {message && <div className="mt-4 p-4 rounded-xl bg-ok/10 border border-ok/20 text-ok-ink text-xs font-bold">{message}</div>}
+            {error && <div className="mt-4 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger-ink text-xs font-bold">{error}</div>}
           </div>
         </div>
 
@@ -307,7 +307,7 @@ export default function AdminMemberControlPage() {
                   onClick={() => setTab('pending')}
                   className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
                       tab === 'pending'
-                          ? 'bg-amber-500/15 text-warn-ink border border-amber-500/30'
+                          ? 'bg-warn/15 text-warn-ink border border-warn/30'
                           : 'text-subtle hover:text-muted border border-transparent'
                   }`}
               >
@@ -317,7 +317,7 @@ export default function AdminMemberControlPage() {
                   onClick={() => setTab('all')}
                   className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
                       tab === 'all'
-                          ? 'bg-indigo-500/15 text-brand-ink border border-indigo-500/30'
+                          ? 'bg-brand/15 text-brand-ink border border-brand/30'
                           : 'text-subtle hover:text-muted border border-transparent'
                   }`}
               >
@@ -352,13 +352,13 @@ export default function AdminMemberControlPage() {
                         </span>
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
                             m.login_linked
-                                ? 'bg-sky-500/10 text-sky-300 border-sky-500/30'
-                                : 'bg-slate-700/30 text-subtle border-slate-600/30'
+                                ? 'bg-info/10 text-info-ink border-info/30'
+                                : 'bg-surface-2 text-subtle border-line'
                         }`}>
                           {m.login_linked ? '로그인 연결됨' : '미로그인'}
                         </span>
                         {!m.login_linked && m.discord_registered && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-violet-500/10 text-violet-300 border-violet-500/30">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-brand/10 text-brand-ink border-brand/30">
                               Discord 사전등록
                             </span>
                         )}
@@ -370,8 +370,8 @@ export default function AdminMemberControlPage() {
                                     key={a.id}
                                     className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
                                         i === 0
-                                            ? 'bg-indigo-500/10 text-brand-ink border-indigo-500/30'
-                                            : 'bg-slate-700/20 text-muted border-slate-600/30'
+                                            ? 'bg-brand/10 text-brand-ink border-brand/30'
+                                            : 'bg-surface-2 text-muted border-line'
                                     }`}
                                 >
                                   {i === 0 && <span className="mr-1 text-[10px] font-black">대표</span>}
@@ -396,7 +396,7 @@ export default function AdminMemberControlPage() {
                         <button
                             onClick={() => handleApprove(m)}
                             disabled={busyId === m.id}
-                            className="px-4 py-2 rounded-lg text-xs font-bold text-ok-ink bg-emerald-500/10 hover:bg-emerald-500 hover:text-white disabled:opacity-50 transition-all"
+                            className="px-4 py-2 rounded-lg text-xs font-bold text-ok-ink bg-ok/10 hover:bg-ok hover:text-white disabled:opacity-50 transition-all"
                         >
                           승인
                         </button>
@@ -405,21 +405,21 @@ export default function AdminMemberControlPage() {
                         <button
                             onClick={() => handleReject(m)}
                             disabled={busyId === m.id}
-                            className="px-4 py-2 rounded-lg text-xs font-bold text-warn-ink bg-amber-500/10 hover:bg-amber-500 hover:text-white disabled:opacity-50 transition-all"
+                            className="px-4 py-2 rounded-lg text-xs font-bold text-warn-ink bg-warn/10 hover:bg-warn hover:text-white disabled:opacity-50 transition-all"
                         >
                           거절
                         </button>
                     )}
                     <button
                         onClick={() => handleEditStart(m)}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-brand-ink bg-indigo-500/10 hover:bg-indigo-500 hover:text-white transition-all"
+                        className="px-4 py-2 rounded-lg text-xs font-bold text-brand-ink bg-brand/10 hover:bg-brand hover:text-white transition-all"
                     >
                       수정
                     </button>
                     <button
                         onClick={() => { setDeleteTarget(m); setConfirmName('') }}
                         disabled={busyId === m.id}
-                        className="px-4 py-2 rounded-lg text-xs font-bold text-danger-ink bg-red-500/10 hover:bg-red-500 hover:text-white disabled:opacity-50 transition-all"
+                        className="px-4 py-2 rounded-lg text-xs font-bold text-danger-ink bg-danger/10 hover:bg-danger hover:text-white disabled:opacity-50 transition-all"
                     >
                       추방
                     </button>
@@ -437,14 +437,14 @@ export default function AdminMemberControlPage() {
         {/* ── 추방 확인 모달 ── */}
         {deleteTarget && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-              <div className="w-full max-w-md rounded-2xl bg-panel border border-red-500/30 p-6">
+              <div className="w-full max-w-md rounded-2xl bg-panel border border-danger/30 p-6">
                 <h3 className="text-lg font-black text-fg">멤버 추방</h3>
                 <p className="mt-2 text-sm text-muted">
                   <span className="font-bold text-fg">{deleteTarget.member_name}</span> 멤버를 완전히 삭제합니다.
                   이 작업은 <span className="text-danger-ink font-bold">되돌릴 수 없습니다.</span>
                 </p>
 
-                <div className="mt-4 rounded-xl bg-red-500/5 border border-red-500/20 p-4">
+                <div className="mt-4 rounded-xl bg-danger/5 border border-danger/20 p-4">
                   <div className="text-xs font-black text-danger-ink uppercase tracking-widest">함께 삭제되는 데이터</div>
                   <ul className="mt-2 text-xs text-danger-ink/80 list-disc pl-5 space-y-1">
                     {DELETE_WARNING.map((w) => <li key={w}>{w}</li>)}
@@ -477,7 +477,7 @@ export default function AdminMemberControlPage() {
                   <button
                       onClick={handleDeleteConfirm}
                       disabled={confirmName !== deleteTarget.member_name || busyId === deleteTarget.id}
-                      className="flex-1 py-3 rounded-xl text-sm font-black text-white bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      className="flex-1 py-3 rounded-xl text-sm font-black text-white bg-danger hover:bg-danger/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     {busyId === deleteTarget.id ? '삭제 중...' : '영구 삭제'}
                   </button>

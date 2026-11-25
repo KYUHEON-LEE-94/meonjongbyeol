@@ -13,9 +13,9 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    // 스플래시 배경을 아이콘(흰 배경)과 맞춘다.
-    background_color: '#ffffff',
-    theme_color: '#6366f1',
+    // 스플래시 배경을 보라 다크 캔버스와 맞춘다.
+    background_color: '#1F1D2B',
+    theme_color: '#6C5DD3',
     lang: 'ko',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

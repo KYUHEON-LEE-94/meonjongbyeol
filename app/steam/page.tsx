@@ -7,7 +7,7 @@ import SharedWithMe from '@/app/steam/SharedWithMe'
 import SteamPresence from '@/app/steam/SteamPresence'
 import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
 import { CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import SectionHeader from '@/app/components/ui/SectionHeader'
 import EmptyState from '@/app/components/ui/EmptyState'
 import SteamDeals from '@/app/steam/SteamDeals'
@@ -202,10 +202,9 @@ export default async function SteamPage() {
   return (
     <main className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="Steam"
-          accent="emerald"
-          title="스팀"
+          title="스팀 라운지"
           description="나와 겹치는 게임, 멤버들이 함께 할 수 있는 게임과 최근 플레이 기록을 모았습니다."
           className="mb-8"
         />

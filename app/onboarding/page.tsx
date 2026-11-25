@@ -4,7 +4,7 @@ import { createRouteClient } from '@/lib/supabase/route'
 import { supabaseService } from '@/lib/supabase/service'
 import { getDiscordId } from '@/lib/auth/discord'
 import { CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import OnboardingClient from './OnboardingClient'
 
 export const dynamic = 'force-dynamic'
@@ -55,10 +55,10 @@ export default async function OnboardingPage() {
   return (
     <div className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="Welcome"
-          accent="indigo"
           title="먼종별에 오신 걸 환영해요"
+          priority
           description="라이엇 ID와 스팀 계정을 등록하면 롤 랭킹과 함께 할 스팀 게임을 볼 수 있어요. 둘 다 나중에 해도 괜찮아요."
           className="mb-8"
         />

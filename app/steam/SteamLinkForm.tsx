@@ -24,7 +24,7 @@ function formatHours(minutes: number) {
 }
 
 const inputCls =
-  'w-full px-4 py-3 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line placeholder:text-faint focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/5 transition-all'
+  'w-full px-4 py-3 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line placeholder:text-faint focus:outline-none focus:border-ok/50 focus:bg-ok/5 transition-all'
 
 export default function SteamLinkForm() {
   const router = useRouter()
@@ -151,14 +151,14 @@ export default function SteamLinkForm() {
               type="button"
               onClick={handleUnlink}
               disabled={loading}
-              className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[11px] font-bold text-muted transition-colors hover:border-red-500/40 hover:text-danger-ink disabled:opacity-50"
+              className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[11px] font-bold text-muted transition-colors hover:border-danger/40 hover:text-danger-ink disabled:opacity-50"
             >
               연결 해제
             </button>
           </div>
 
           {steam.is_private && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs font-bold text-warn-ink/90">
+            <div className="rounded-xl border border-warn/20 bg-warn/5 px-4 py-3 text-xs font-bold text-warn-ink/90">
               프로필 비공개 — 게임 데이터가 표시되지 않습니다. 스팀 프로필 설정에서 &ldquo;내 프로필&rdquo;과
               &ldquo;게임 상세 정보&rdquo;를 공개로 바꿔주세요.
             </div>
@@ -203,7 +203,7 @@ export default function SteamLinkForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white transition-all hover:bg-emerald-500 disabled:opacity-50"
+            className="w-full rounded-xl bg-ok py-3 text-sm font-black text-white transition-all hover:bg-ok/90 disabled:opacity-50"
           >
             {loading ? '연결 중...' : '스팀 계정 연결하기'}
           </button>
@@ -211,12 +211,12 @@ export default function SteamLinkForm() {
       )}
 
       {message && (
-        <div className="mt-4 rounded-xl bg-emerald-500/10 p-3 text-xs font-bold text-ok-ink ring-1 ring-emerald-500/20">
+        <div className="mt-4 rounded-xl bg-ok/10 p-3 text-xs font-bold text-ok-ink ring-1 ring-ok/20">
           {message}
         </div>
       )}
       {error && (
-        <div className="mt-4 rounded-xl bg-red-500/10 p-3 text-xs font-bold text-danger-ink ring-1 ring-red-500/20">
+        <div className="mt-4 rounded-xl bg-danger/10 p-3 text-xs font-bold text-danger-ink ring-1 ring-danger/20">
           {error}
         </div>
       )}

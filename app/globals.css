@@ -18,99 +18,146 @@
  *    유틸이 var(--color-*) 참조로 컴파일되고, 아래 셀렉터에서 값을 뒤집는다.
  *    @theme 의 값은 다크 기준(=현행 픽셀). 실제 적용값은 :root/[data-theme] 에서 온다.
  */
-@theme {
-  /* ── 서피스 (다크 기준값 = 현행) ── */
-  --color-canvas: #07090f;                      /* 페이지 배경 */
-  --color-surface: rgba(255, 255, 255, 0.03);   /* 카드 기본 */
-  --color-surface-2: rgba(255, 255, 255, 0.06); /* hover / 인풋 / 중첩 */
-  --color-line: rgba(255, 255, 255, 0.08);      /* 보더 단일값 */
-  --color-line-strong: rgba(255, 255, 255, 0.2);/* hover 보더 */
-  --color-panel: #0d1117;                       /* 불투명 패널/모달 */
-  --color-surface-raised: #131923;
-  --color-shadow: rgba(0, 0, 0, 0.34);
+/*
+ * dark: variant 를 OS 설정이 아니라 html data-theme 에 연결한다(ThemeToggle 과 일치).
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-  /* ── 텍스트 4단계 (다크 기준값 = 현행 slate) ── */
-  --color-fg: #f8fafc;      /* 본문 최상 (구 text-white / slate-100·200) */
-  --color-muted: #94a3b8;   /* 보조 (구 slate-300·400) */
-  --color-subtle: #64748b;  /* 약함 (구 slate-500) */
-  --color-faint: #475569;   /* 최약/장식 (구 slate-600·700·800) */
+@theme {
+  /* ── 서피스 (다크 기준값 — "Elegant Dark" 보라 다크) ── */
+  --color-canvas: #1f1d2b;          /* 페이지 배경 */
+  --color-surface: #252836;         /* 카드 기본 */
+  --color-surface-2: #2d2b3d;       /* hover / 인풋 / 중첩 */
+  --color-line: rgba(255, 255, 255, 0.06);       /* 보더 단일값 */
+  --color-line-strong: rgba(255, 255, 255, 0.14);/* hover 보더 */
+  --color-panel: #252836;           /* 불투명 패널/모달 */
+  --color-surface-raised: #2a2838;
+  --color-shadow: rgba(8, 6, 20, 0.55);
+
+  /* ── 텍스트 4단계 ── */
+  --color-fg: #ffffff;      /* 본문 최상 */
+  --color-muted: #b4b3c8;   /* 보조 */
+  --color-subtle: #8f90a6;  /* 약함 */
+  --color-faint: #5f5d73;   /* 최약/장식 전용 — 본문 금지 */
 
   /* ── 역할색 텍스트(ink) — 필 토큰과 분리. 라이트에서 대비 확보 ── */
-  --color-brand-ink: #a5b4fc;   /* indigo-200~500 텍스트 */
-  --color-ok-ink: #6ee7b7;      /* emerald-300·400 텍스트 */
-  --color-warn-ink: #fbbf24;    /* amber 텍스트 */
-  --color-danger-ink: #f87171;  /* red/rose 텍스트 */
+  --color-brand-ink: #a99bff;
+  --color-ok-ink: #5ee0a8;
+  --color-warn-ink: #ffc34d;
+  --color-danger-ink: #ff7a7a;
+  --color-info-ink: #7dd3fc;
 
-  /* ── 역할색 필 ── 양 테마 동일(버튼·틴트용) */
-  --color-brand: oklch(0.585 0.233 277.117);  /* indigo-500 : 주 강조·포커스·내비 active */
-  --color-ok: oklch(0.696 0.17 162.48);       /* emerald-500 : 성공 */
-  --color-warn: oklch(0.769 0.188 70.08);     /* amber-500 : 경고 */
-  --color-danger: oklch(0.637 0.237 25.331);  /* red-500 : 위험 (rose 폐기) */
+  /* ── 역할색 필 ── */
+  --color-brand: #6c5dd3;   /* 주 강조·포커스·내비 active. 흰 글자 대비 약 5.1 */
+  --color-ok: oklch(0.696 0.17 162.48);
+  --color-warn: oklch(0.769 0.188 70.08);
+  --color-danger: oklch(0.637 0.237 25.331);
+  --color-info: #38bdf8;
+
+  /* 알림 점·뱃지 전용. 위에 흰 글자를 올리지 않는다 */
+  --color-accent: #ff754c;
+  /* 별 장식 */
+  --color-star: #ffd43b;
+
+  /* ── 히어로 배너 그라데이션 (양 테마 거의 동일 — 배너 자체가 흰 글자 영역) ── */
+  --color-hero-from: #4f3fc0;
+  --color-hero-via: #6c5dd3;
+  --color-hero-to: #8b78f5;
+
+  /* 사이드바 배경 */
+  --color-sidebar: #1a1825;
+
+  /* Discord 브랜드 버튼 */
+  --color-discord: #5865f2;
+  --color-discord-hover: #4752c4;
 
   /* ── 위 ink 의 별칭. 랭크 상승/하락 텍스트 ── */
-  --color-up: var(--color-ok-ink);       /* 랭크 상승 */
-  --color-down: var(--color-danger-ink); /* 랭크 하락 */
+  --color-up: var(--color-ok-ink);
+  --color-down: var(--color-danger-ink);
 
-  /* 상단 네비 높이. SHELL 의 min-h 계산과 동일한 3.5rem */
+  /* 모바일 상단바 높이. SHELL 의 min-h 계산과 동일한 3.5rem */
   --color-nav-h: 3.5rem;
 
   /* ── surface-2 의 불투명 변형 ──
-     surface-2 는 다크에서 rgba(255,255,255,0.06) 라 반투명이다. 카드/패널 위에서는 문제없지만
-     사용자가 장착한 임의 밝기의 배너 이미지 위에 놓이면 컨테이너가 사실상 사라지고
-     그 안의 보조 텍스트 대비가 무너진다. 배너 위에 얹히는 칩·필은 이 토큰을 쓴다.
-     다크 값은 surface-2 를 panel(#0d1117) 위에 합성한 결과와 같아, 배너가 없을 때 외형이 바뀌지 않는다. */
-  --color-surface-2-solid: #1b1f25;
+     사용자가 장착한 임의 밝기의 배너 이미지 위에 얹히는 칩·필은 이 토큰을 쓴다. */
+  --color-surface-2-solid: #2d2b3d;
+
+  /* 숫자·라틴 헤드라인 전용 디스플레이 폰트 (layout.tsx 의 Poppins 변수) */
+  --font-display: var(--font-poppins), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ── 라이트 (기본) ──
+/* ── 라이트 (기본) — 라벤더 라이트 ──
    FOUC 스크립트가 항상 data-theme 를 심지만, 미설정 상태의 폴백으로 :root 에도 둔다. */
 :root,
 [data-theme='light'] {
   color-scheme: light;
-  --color-canvas: #f3f5f9;
+  --color-canvas: #f4f2ff;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f3f8;
-  /* 라이트의 surface-2 는 이미 불투명 — 값이 같아 라이트 외형은 그대로다. */
-  --color-surface-2-solid: #f0f3f8;
-  --color-line: rgba(30, 41, 59, 0.1);
-  --color-line-strong: rgba(30, 41, 59, 0.2);
+  --color-surface-2: #f0edfa;
+  --color-surface-2-solid: #f0edfa;
+  --color-line: rgba(108, 93, 211, 0.12);
+  --color-line-strong: rgba(108, 93, 211, 0.24);
   --color-panel: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-shadow: rgba(30, 41, 59, 0.09);
+  --color-shadow: rgba(76, 61, 170, 0.14);
 
-  --color-fg: #0f172a;
-  --color-muted: #475569;
-  --color-subtle: #64748b;
-  --color-faint: #94a3b8;
+  --color-fg: #1b1930;
+  --color-muted: #4b4868;
+  --color-subtle: #6b6887;
+  --color-faint: #a4a1bd;
 
-  --color-brand-ink: #4338ca;
+  --color-brand: #6c5dd3;
+  --color-brand-ink: #5141c2;
   --color-ok-ink: #047857;
   --color-warn-ink: #b45309;
   --color-danger-ink: #dc2626;
+  --color-info: #0284c7;
+  --color-info-ink: #0369a1;
+
+  --color-accent: #ff754c;
+  --color-star: #f5b700;
+  --color-hero-from: #4f3fc0;
+  --color-hero-via: #6c5dd3;
+  --color-hero-to: #9a88ff;
+  --color-sidebar: #ffffff;
+  --color-discord: #5865f2;
+  --color-discord-hover: #4752c4;
 }
 
-/* ── 다크 (현행 픽셀 유지) ── */
+/* ── 다크 — 보라 다크 ── */
 [data-theme='dark'] {
   color-scheme: dark;
-  --color-canvas: #07090f;
-  --color-surface: rgba(255, 255, 255, 0.03);
-  --color-surface-2: rgba(255, 255, 255, 0.06);
-  --color-surface-2-solid: #1b1f25;
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.2);
-  --color-panel: #0d1117;
-  --color-surface-raised: #121722;
-  --color-shadow: rgba(0, 0, 0, 0.32);
+  --color-canvas: #1f1d2b;
+  --color-surface: #252836;
+  --color-surface-2: #2d2b3d;
+  --color-surface-2-solid: #2d2b3d;
+  --color-line: rgba(255, 255, 255, 0.06);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+  --color-panel: #252836;
+  --color-surface-raised: #2a2838;
+  --color-shadow: rgba(8, 6, 20, 0.55);
 
-  --color-fg: #f8fafc;
-  --color-muted: #94a3b8;
-  --color-subtle: #64748b;
-  --color-faint: #475569;
+  --color-fg: #ffffff;
+  --color-muted: #b4b3c8;
+  --color-subtle: #8f90a6;
+  --color-faint: #5f5d73;
 
-  --color-brand-ink: #a5b4fc;
-  --color-ok-ink: #6ee7b7;
-  --color-warn-ink: #fbbf24;
-  --color-danger-ink: #f87171;
+  --color-brand: #6c5dd3;
+  --color-brand-ink: #a99bff;
+  --color-ok-ink: #5ee0a8;
+  --color-warn-ink: #ffc34d;
+  --color-danger-ink: #ff7a7a;
+  --color-info: #38bdf8;
+  --color-info-ink: #7dd3fc;
+
+  --color-accent: #ff754c;
+  --color-star: #ffd43b;
+  --color-hero-from: #4f3fc0;
+  --color-hero-via: #6c5dd3;
+  --color-hero-to: #8b78f5;
+  --color-sidebar: #1a1825;
+  --color-discord: #5865f2;
+  --color-discord-hover: #4752c4;
 }
 
 /* ⚠ font-family 에 Arial 을 강제하지 않는다 — layout.tsx 가 주입한 Geist 변수를 덮어쓴다.
@@ -119,8 +166,9 @@ body {
   min-height: 100vh;
   background-color: var(--color-canvas);
   background-image:
-    radial-gradient(circle at 14% -10%, color-mix(in srgb, var(--color-brand) 9%, transparent) 0, transparent 34rem),
-    radial-gradient(circle at 92% 12%, color-mix(in srgb, var(--color-warn) 5%, transparent) 0, transparent 30rem);
+    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--color-brand) 12%, transparent) 0, transparent 36rem),
+    radial-gradient(circle at 95% 105%, color-mix(in srgb, var(--color-hero-to) 6%, transparent) 0, transparent 32rem);
+  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-geist-sans), 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic',
     ui-sans-serif, system-ui, sans-serif;
@@ -273,7 +321,7 @@ option {
 }
 
 /* 프로필 카드 전용 테마. 공개 랭킹 카드는 영향을 받지 않는다. */
-.profile-card-theme { background-color: var(--surface); }
+.profile-card-theme { background-color: var(--color-surface); }
 .profile-card-theme--neon_arcade { background: radial-gradient(circle at 85% 5%, rgb(236 72 153 / .34), transparent 42%), radial-gradient(circle at 12% 100%, rgb(34 211 238 / .26), transparent 44%), #15122a; box-shadow: inset 0 0 0 1px rgb(168 85 247 / .42), 0 18px 50px rgb(88 28 135 / .2); }
 .profile-card-theme--deep_ocean { background: radial-gradient(circle at 75% 10%, rgb(34 211 238 / .26), transparent 38%), linear-gradient(135deg, #071d35, #0d3348 55%, #082036); box-shadow: inset 0 0 0 1px rgb(103 232 249 / .32); }
 .profile-card-theme--blossom_garden { background: radial-gradient(circle at 10% 0%, rgb(251 113 133 / .3), transparent 38%), radial-gradient(circle at 95% 100%, rgb(244 114 182 / .22), transparent 44%), #30152a; box-shadow: inset 0 0 0 1px rgb(251 113 133 / .36); }
@@ -283,8 +331,8 @@ option {
 
 /* 로딩 스켈레톤 — 콘텐츠가 들어올 자리를 실제 모양으로 미리 보여주는 shimmer 플레이스홀더.
    "불러오는 중…" 텍스트보다 무엇이 로딩되는지 직관적으로 전달한다. */
-.skeleton { position: relative; overflow: hidden; background: var(--surface-2); }
-.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(255 255 255 / .09), transparent); animation: skeleton-shimmer 1.4s ease-in-out infinite; }
+.skeleton { position: relative; overflow: hidden; background: var(--color-surface-2); }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-fg) 8%, transparent), transparent); animation: skeleton-shimmer 1.4s ease-in-out infinite; }
 @keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
 

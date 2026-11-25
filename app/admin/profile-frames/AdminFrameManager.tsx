@@ -24,7 +24,7 @@ const inputCls = `
   w-full px-4 py-2.5 rounded-xl text-sm font-medium text-fg
   bg-surface-2 border border-line
   placeholder:text-faint
-  focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5
+  focus:outline-none focus:border-brand/50 focus:bg-brand/5
   transition-all duration-200
 `
 
@@ -233,7 +233,7 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
 
             {/* ── 알림 (Toast) ── */}
             {toast && (
-                <div className="animate-in fade-in slide-in-from-top-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-warn-ink font-bold">
+                <div className="animate-in fade-in slide-in-from-top-2 rounded-xl bg-warn/10 border border-warn/20 px-4 py-3 text-sm text-warn-ink font-bold">
                     {toast}
                 </div>
             )}
@@ -249,7 +249,7 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
                                 onClick={() => switchType(t)}
                                 className={`rounded-md px-4 py-1.5 text-xs font-black transition-colors ${
                                     uploadType === t
-                                        ? (t === 'frame' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white')
+                                        ? (t === 'frame' ? 'bg-brand text-white' : 'bg-ok text-white')
                                         : 'text-muted hover:text-fg'
                                 }`}
                             >
@@ -289,7 +289,7 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
                     disabled={busy}
                     onClick={uploadType === 'frame' ? uploadFrame : uploadBackground}
                     className={`mt-6 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg ${
-                        uploadType === 'frame' ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20'
+                        uploadType === 'frame' ? 'bg-brand hover:bg-brand/90 shadow-brand/20' : 'bg-ok hover:bg-ok/90 shadow-ok/20'
                     }`}
                 >
                     {busy ? <Spinner size={4} /> : null}
@@ -321,12 +321,12 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                                 <label className="flex items-center gap-1 text-[11px] font-bold text-muted">
-                                    <input type="number" min={0} value={e.price_points} onChange={(ev) => setEffects(effects.map((row) => row.id === e.id ? { ...row, price_points: Number(ev.target.value) } : row))} aria-label={`${e.label} 가격`} className="w-20 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-fg focus:border-indigo-500/50 focus:outline-none" />
+                                    <input type="number" min={0} value={e.price_points} onChange={(ev) => setEffects(effects.map((row) => row.id === e.id ? { ...row, price_points: Number(ev.target.value) } : row))} aria-label={`${e.label} 가격`} className="w-20 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-fg focus:border-brand/50 focus:outline-none" />
                                     P
                                 </label>
-                                <button disabled={busy} onClick={() => saveEffect(e)} className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white transition-all hover:bg-indigo-500 disabled:opacity-50">저장</button>
+                                <button disabled={busy} onClick={() => saveEffect(e)} className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white transition-all hover:bg-brand/90 disabled:opacity-50">저장</button>
                                 {e.image_path && (
-                                    <button disabled={busy} onClick={() => deleteBackground(e)} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-bold text-danger-ink transition-all hover:bg-red-500/20 disabled:opacity-30">삭제</button>
+                                    <button disabled={busy} onClick={() => deleteBackground(e)} className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-2 text-xs font-bold text-danger-ink transition-all hover:bg-danger/20 disabled:opacity-30">삭제</button>
                                 )}
                             </div>
                         </div>
@@ -337,7 +337,7 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
             {/* ── 프레임 목록 ── */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-faint" />
                     <h2 className="text-xs font-black text-muted tracking-widest uppercase">Frame List</h2>
                     <span className="text-[10px] font-bold text-faint ml-auto">{frames.length} items</span>
                 </div>
@@ -378,21 +378,21 @@ export default function AdminFrameManager({ initialFrames,initialEffects }: { in
                                         value={f.price_points}
                                         onChange={(e) => setFrames(frames.map((row, i) => i === idx ? { ...row, price_points: Number(e.target.value) } : row))}
                                         aria-label={`${f.label} 가격`}
-                                        className="w-20 px-3 py-2 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line focus:outline-none focus:border-indigo-500/50"
+                                        className="w-20 px-3 py-2 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line focus:outline-none focus:border-brand/50"
                                     />
                                     P
                                 </label>
                                 <button
                                     disabled={busy}
                                     onClick={() => saveFrame(f)}
-                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-brand text-white hover:bg-indigo-500 disabled:opacity-40 transition-all"
+                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-brand text-white hover:bg-brand/90 disabled:opacity-40 transition-all"
                                 >
                                     저장
                                 </button>
                                 <button
                                     disabled={busy}
                                     onClick={() => deleteFrame(f)}
-                                    className="px-4 py-2 rounded-xl text-xs font-bold text-danger-ink bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-danger-ink disabled:opacity-30 transition-all"
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-danger-ink bg-danger/10 border border-danger/20 hover:bg-danger/20 hover:text-danger-ink disabled:opacity-30 transition-all"
                                 >
                                     삭제
                                 </button>

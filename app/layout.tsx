@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
-import SiteNav from "@/app/components/SiteNav";
+import AppShell from "@/app/components/AppShell";
 import PwaServiceWorker from "@/app/components/PwaServiceWorker";
 import { getSiteUrl } from "@/lib/og/siteUrl";
 
@@ -13,6 +13,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// 숫자·라틴 헤드라인 전용(font-display). 한글은 기존 시스템 고딕 스택을 그대로 쓴다.
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -54,12 +61,11 @@ export default function RootLayout({
         />
       </head>
       <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
           suppressHydrationWarning
       >
       <PwaServiceWorker />
-      <SiteNav />
-      {children}
+      <AppShell>{children}</AppShell>
       </body>
       </html>
   );

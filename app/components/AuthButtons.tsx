@@ -2,78 +2,39 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabaseClient } from '@/lib/supabase'
-import { getDiscordAvatarUrl, getDiscordDisplayName } from '@/lib/auth/discord'
-import type { User } from '@supabase/supabase-js'
-import { BTN_NEUTRAL } from '@/lib/ui/styles'
-import { cleanupPushSubscription } from '@/lib/push/clientUnsubscribe'
+import { BTN_NEUTRAL, BTN_PRIMARY } from '@/lib/ui/styles'
+import type { Viewer } from '@/app/components/nav/useViewer'
+import { ADMIN_HREF } from '@/app/components/nav/navItems'
 
-export default function AuthButtons() {
+// 표시 전용. 세션·관리자 판정·로그아웃 로직은 AppShell 의 useViewer() 1회 호출 결과를 받는다.
+
+function Avatar({ viewer, size }: { viewer: Viewer; size: 36 | 40 }) {
+  const box = size === 40 ? 'h-10 w-10' : 'h-9 w-9'
+  if (viewer.avatarUrl) {
+    return (
+      <Image src={viewer.avatarUrl} alt="" width={size} height={size} className={`${box} shrink-0 rounded-full object-cover`} />
+    )
+  }
+  const initial = (viewer.displayName ?? '?').trim().charAt(0).toUpperCase() || '?'
+  return (
+    <span className={`flex ${box} shrink-0 items-center justify-center rounded-full bg-brand/20 text-sm font-black text-brand-ink`}>
+      {initial}
+    </span>
+  )
+}
+
+export default function AuthButtons({
+  viewer,
+  variant = 'avatar',
+}: {
+  viewer: Viewer
+  variant?: 'avatar' | 'sidebar-card'
+}) {
   const router = useRouter()
-
-  const [loading, setLoading] = useState(true)
-  // Discord 계정은 email이 없을 수 있으므로 로그인 여부는 user 존재로 판별한다.
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [displayName, setDisplayName] = useState<string | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-
   const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    let mounted = true
-
-    // admins 테이블은 RLS 로 브라우저(anon)에서 직접 읽을 수 없으므로
-    // 관리자 판정은 서버 라우트(requireAdmin: user_id 매칭 → discord_id 폴백 → user_id 백필)에 위임한다.
-    // 네트워크/조회 실패는 관리자 아님으로 조용히 degrade 한다(기존 동작과 동일).
-    async function checkAdmin() {
-      try {
-        const res = await fetch('/api/admin/me', { cache: 'no-store' })
-        if (!res.ok) return false
-        const body = await res.json()
-        return body?.ok === true
-      } catch {
-        return false
-      }
-    }
-
-    async function applyUser(user: User | null) {
-      setIsLoggedIn(!!user)
-      setDisplayName(getDiscordDisplayName(user))
-      setAvatarUrl(getDiscordAvatarUrl(user))
-
-      if (!user) {
-        setIsAdmin(false)
-        return
-      }
-
-      const admin = await checkAdmin()
-      if (!mounted) return
-      setIsAdmin(admin)
-    }
-
-    async function load() {
-      setLoading(true)
-      const { data } = await supabaseClient.auth.getSession()
-      if (!mounted) return
-      await applyUser(data.session?.user ?? null)
-      if (!mounted) return
-      setLoading(false)
-    }
-
-    load()
-
-    const { data: sub } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      void applyUser(session?.user ?? null)
-    })
-
-    return () => {
-      mounted = false
-      sub.subscription.unsubscribe()
-    }
-  }, [])
 
   // 바깥 클릭·ESC로 메뉴를 닫는다.
   useEffect(() => {
@@ -98,14 +59,7 @@ export default function AuthButtons() {
 
   const handleLogout = async () => {
     setMenuOpen(false)
-    setLoading(true)
-    try {
-      await cleanupPushSubscription()
-      await supabaseClient.auth.signOut()
-    } finally {
-      setLoading(false)
-      router.refresh()
-    }
+    await viewer.logout()
   }
 
   const go = (path: string) => {
@@ -113,90 +67,112 @@ export default function AuthButtons() {
     router.push(path)
   }
 
-  if (loading) {
-    return <div className="text-xs text-subtle">로딩...</div>
-  }
-
-  // 비로그인: 로그인 버튼만
-  if (!isLoggedIn) {
-    return (
-        <button onClick={() => router.push('/login')} className={BTN_NEUTRAL}>
-          로그인
-        </button>
+  if (viewer.loading) {
+    return variant === 'sidebar-card' ? (
+      <div className="skeleton h-16 rounded-2xl" aria-label="로딩 중" />
+    ) : (
+      <div className="skeleton h-9 w-9 rounded-full" aria-label="로딩 중" />
     )
   }
 
-  // 이니셜 폴백(아바타 없을 때)
-  const initial = (displayName ?? '?').trim().charAt(0).toUpperCase() || '?'
+  if (!viewer.isLoggedIn) {
+    return variant === 'sidebar-card' ? (
+      <div className="rounded-2xl bg-surface-2 p-4">
+        <p className="text-xs font-semibold text-muted">로그인하고 내전·포인트를 이용하세요.</p>
+        <Link href="/login" className={`${BTN_PRIMARY} mt-3 w-full`}>
+          로그인
+        </Link>
+      </div>
+    ) : (
+      <button onClick={() => router.push('/login')} className={BTN_NEUTRAL}>
+        로그인
+      </button>
+    )
+  }
 
-  // 로그인: 프로필 이미지 버튼 → 드롭다운(프로필/관리/로그아웃)
-  return (
+  const menu = menuOpen && (
+    <div
+      role="menu"
+      className={`absolute z-50 w-52 overflow-hidden rounded-3xl bg-panel shadow-[0_24px_64px_-20px_var(--color-shadow)] ring-1 ring-line ${
+        variant === 'sidebar-card' ? 'bottom-full left-0 mb-2' : 'right-0 mt-2'
+      }`}
+    >
+      {viewer.displayName && (
+        <div className="border-b border-line px-4 py-3">
+          <p className="text-xs font-semibold text-muted">로그인 계정</p>
+          <p className="mt-0.5 truncate text-sm font-bold text-fg">{viewer.displayName}</p>
+        </div>
+      )}
+
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => go('/profile')}
+        className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
+      >
+        프로필
+      </button>
+
+      {viewer.isAdmin && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => go(ADMIN_HREF)}
+          className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-brand-ink transition-colors hover:bg-surface-2"
+        >
+          관리
+        </button>
+      )}
+
+      <button
+        type="button"
+        role="menuitem"
+        onClick={handleLogout}
+        className="block w-full border-t border-line px-4 py-2.5 text-left text-sm font-semibold text-danger-ink transition-colors hover:bg-surface-2"
+      >
+        로그아웃
+      </button>
+    </div>
+  )
+
+  if (variant === 'sidebar-card') {
+    return (
       <div className="relative" ref={menuRef}>
         <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label="내 메뉴 열기"
-            className="flex items-center rounded-full ring-1 ring-line hover:ring-line-strong transition focus:outline-none focus:ring-2 focus:ring-brand/60"
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="내 메뉴 열기"
+          className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         >
-          {avatarUrl ? (
-              <Image
-                  src={avatarUrl}
-                  alt=""
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 rounded-full object-cover"
-              />
-          ) : (
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/20 text-sm font-black text-brand-ink">
-                {initial}
-              </span>
-          )}
+          <Avatar viewer={viewer} size={40} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold text-fg">{viewer.displayName ?? '멤버'}</span>
+            <span className="block text-xs text-subtle">{viewer.isAdmin ? '관리자' : '멤버'}</span>
+          </span>
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-subtle" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m8 10 4-4 4 4M8 14l4 4 4-4" />
+          </svg>
         </button>
-
-        {menuOpen && (
-            <div
-                role="menu"
-                className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-line bg-panel/95 backdrop-blur-sm shadow-2xl z-50"
-            >
-              {displayName && (
-                  <div className="px-4 py-3 border-b border-line">
-                    <p className="text-xs font-semibold text-muted">로그인 계정</p>
-                    <p className="mt-0.5 text-sm font-bold text-fg truncate">{displayName}</p>
-                  </div>
-              )}
-
-              <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => go('/profile')}
-                  className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-fg hover:bg-surface-2 transition-colors"
-              >
-                프로필
-              </button>
-
-              {isAdmin && (
-                  <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => go('/admin/members/sync')}
-                      className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-brand-ink hover:bg-surface-2 transition-colors"
-                  >
-                    관리
-                  </button>
-              )}
-
-              <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleLogout}
-                  className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-danger-ink hover:bg-surface-2 transition-colors border-t border-line"
-              >
-                로그아웃
-              </button>
-            </div>
-        )}
+        {menu}
       </div>
+    )
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label="내 메뉴 열기"
+        className="flex items-center rounded-full ring-1 ring-line transition hover:ring-line-strong focus:outline-none focus:ring-2 focus:ring-brand/60"
+      >
+        <Avatar viewer={viewer} size={36} />
+      </button>
+      {menu}
+    </div>
   )
 }

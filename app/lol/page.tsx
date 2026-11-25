@@ -5,7 +5,7 @@ import type { Member } from '@/types/supabase'
 import { compareRank } from '@/lib/constants/tierOrder'
 import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
 import { CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import EmptyState from '@/app/components/ui/EmptyState'
 import { resolveFrameUrl, isSpinningFrame } from '@/lib/cosmetics/frameUrl'
 import { rankEffectClass } from '@/lib/cosmetics/rankEffects'
@@ -39,6 +39,7 @@ type LolMember = Pick<
   | 'lol_losses'
 >
 
+// palette: tier — 티어 고유색은 토큰화하지 않는다(화이트리스트). 실버·아이언·언랭만 중립 토큰.
 const TIER_STYLES: Record<string, { text: string; badge: string; icon: string }> = {
   CHALLENGER:  { text: 'text-yellow-400',  badge: 'bg-yellow-400/10 text-yellow-300 border-yellow-500/20',    icon: '👑' },
   GRANDMASTER: { text: 'text-danger-ink',     badge: 'bg-red-500/10 text-danger-ink border-red-500/20',             icon: '♦' },
@@ -47,14 +48,14 @@ const TIER_STYLES: Record<string, { text: string; badge: string; icon: string }>
   EMERALD:     { text: 'text-ok-ink', badge: 'bg-emerald-500/10 text-ok-ink border-emerald-500/20', icon: '◈' },
   PLATINUM:    { text: 'text-cyan-400',    badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',          icon: '◉' },
   GOLD:        { text: 'text-warn-ink',   badge: 'bg-amber-500/10 text-warn-ink border-amber-500/20',       icon: '○' },
-  SILVER:      { text: 'text-muted',   badge: 'bg-slate-400/10 text-muted border-slate-400/20',       icon: '○' },
+  SILVER:      { text: 'text-muted',   badge: 'bg-muted/10 text-muted border-muted/20',       icon: '○' },
   BRONZE:      { text: 'text-orange-400',  badge: 'bg-orange-500/10 text-orange-300 border-orange-500/20',    icon: '○' },
-  IRON:        { text: 'text-gray-400',    badge: 'bg-gray-500/10 text-gray-300 border-gray-500/20',          icon: '◌' },
+  IRON:        { text: 'text-subtle',    badge: 'bg-subtle/10 text-muted border-subtle/20',          icon: '◌' },
 }
 
 const FALLBACK_STYLE = {
   text: 'text-muted',
-  badge: 'bg-slate-700/50 text-muted border-slate-600/30',
+  badge: 'bg-surface-2 text-muted border-line',
   icon: '?',
 }
 
@@ -115,11 +116,11 @@ export default async function LolPage() {
   return (
     <main className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="League of Legends"
-          accent="sky"
           title="롤 랭킹"
           description="등록된 라이엇 계정의 솔로랭크 기록입니다. 별도 입력은 필요하지 않습니다."
+          stats={[{ label: '랭크 인원', value: `${rankedCount}명` }]}
         />
 
         {rankedCount === 0 ? (

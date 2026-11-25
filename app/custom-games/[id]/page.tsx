@@ -31,7 +31,8 @@ import {
   toKstDateInput,
   toKstTimeInput,
 } from '@/lib/customGames/display'
-import { ALERT, CONTAINER, PANEL } from '@/lib/ui/styles'
+import { ALERT, BTN_NEUTRAL, BTN_PRIMARY, CONTAINER, INPUT, PANEL, SHELL } from '@/lib/ui/styles'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
 
@@ -534,20 +535,18 @@ export default function CustomGameDetailPage() {
   const renderParticipantRow = (p: MemberParticipant, tone: 'confirmed' | 'waitlist') => (
     <div
       key={p.id}
-      className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-      style={{
-        background: tone === 'confirmed' ? 'var(--color-surface)' : 'rgba(249,115,22,0.05)',
-        borderColor: tone === 'confirmed' ? 'var(--color-line)' : 'rgba(249,115,22,0.15)',
-      }}
+      className={`flex items-center gap-2 px-3 py-2 rounded-2xl border ${
+        tone === 'confirmed' ? 'bg-surface-2 border-line' : 'bg-warn/5 border-warn/15'
+      }`}
     >
-      <span className={`text-[10px] font-black w-5 text-center ${tone === 'confirmed' ? 'text-faint' : 'text-orange-400'}`}>
+      <span className={`text-[10px] font-black w-5 text-center ${tone === 'confirmed' ? 'text-faint' : 'text-warn-ink'}`}>
         {tone === 'confirmed' ? p.position : p.position - confirmedList.length}
       </span>
       <div>
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-bold text-fg leading-tight">{p.member_name}</p>
           {p.is_host && (
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/25 text-brand-ink">
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-brand/15 border border-brand/25 text-brand-ink">
               주최
             </span>
           )}
@@ -565,7 +564,7 @@ export default function CustomGameDetailPage() {
           onClick={() => handleKick(p)}
           disabled={kickingId === p.id}
           className="ml-1 w-5 h-5 flex items-center justify-center rounded-md
-            text-faint hover:text-danger-ink hover:bg-red-500/10
+            text-faint hover:text-danger-ink hover:bg-danger/10
             disabled:opacity-40 transition-colors"
           title="명단에서 제외"
         >
@@ -582,30 +581,48 @@ export default function CustomGameDetailPage() {
   // ── 렌더 ─────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas">
-      <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link
-              href="/custom-games"
-              className="flex items-center gap-1.5 text-sm font-bold text-muted hover:text-fg transition-colors flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-                <path d="M15 19l-7-7 7-7" />
-              </svg>
-              내전 목록
-            </Link>
-            {game && (
-              <>
-                <span className="text-faint flex-shrink-0">·</span>
-                <span className="text-sm font-black text-fg truncate">{game.title}</span>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+    <>
+    {/* 자체 sticky 헤더를 두지 않는다 — 앱 내비(AppShell)와 겹친다. 탭바 여백은 SHELL 이 맡는다. */}
+    <main className={SHELL}>
+      <div className={CONTAINER}>
+        <nav aria-label="이동 경로" className="mb-4">
+          <Link
+            href="/custom-games"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-2xl px-1 text-sm font-bold text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+              <path d="M15 19l-7-7 7-7" />
+            </svg>
+            내전 목록
+          </Link>
+        </nav>
 
-      <main className={`relative z-10 flex-1 w-full px-4 py-8 ${CONTAINER}`}>
+        {!loading && game && (
+          <HeroBanner
+            size="md"
+            kicker={gameKindLabel(game.game_kind, game.game_kind_label)}
+            title={game.title}
+            description={`${formatKstSchedule(game.scheduled_at)} · 주최 ${game.host_member_name ?? '알 수 없음'}`}
+            illustration={
+              game.game_kind === 'steam' && game.steam_app_id != null ? (
+                <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
+                  <span className="relative block h-[46px] w-[120px] overflow-hidden rounded-xl sm:h-[60px] sm:w-[160px]">
+                    <SteamThumb appid={game.steam_app_id} name={gameKindLabel(game.game_kind, game.game_kind_label)} />
+                  </span>
+                </span>
+              ) : game.game_kind === 'tft' || game.game_kind === 'lol' ? (
+                <span className="block rotate-6 rounded-2xl bg-white p-1.5 shadow-[0_14px_30px_-12px_var(--color-shadow)] ring-1 ring-black/5">
+                  <span className="relative block h-16 w-16 overflow-hidden rounded-xl sm:h-24 sm:w-24">
+                    <Image src={`/custom-games/${game.game_kind}.png`} alt="" fill sizes="96px" className="object-cover" />
+                  </span>
+                </span>
+              ) : (
+                'character'
+              )
+            }
+          />
+        )}
+
         <div className={PANEL} aria-busy={loading || refreshing}>
           {loading && (
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-subtle">
@@ -625,18 +642,7 @@ export default function CustomGameDetailPage() {
             <>
               {/* 타이틀 */}
               <div className="mb-8">
-                {game.game_kind === 'steam' && game.steam_app_id != null && (
-                  <div className="relative mb-3 h-[42px] w-[110px] overflow-hidden rounded-lg border border-line bg-surface-2">
-                    <SteamThumb appid={game.steam_app_id} name={gameKindLabel(game.game_kind, game.game_kind_label)} />
-                  </div>
-                )}
-                {(game.game_kind === 'tft' || game.game_kind === 'lol') && (
-                  <div className="relative mb-3 h-14 w-14 overflow-hidden rounded-xl border border-line bg-surface-2">
-                    <Image src={`/custom-games/${game.game_kind}.png`} alt="" fill sizes="56px" className="object-cover" />
-                  </div>
-                )}
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <h1 className="text-2xl font-black text-fg tracking-tight">{game.title}</h1>
                   {refreshing && (
                     <span role="status" aria-label="새로고침 중" className="text-subtle">
                       <Spinner size={4} />
@@ -646,22 +652,19 @@ export default function CustomGameDetailPage() {
                     {gameKindLabel(game.game_kind, game.game_kind_label)}
                   </Badge>
                   {isLol && game.lol_mode && (
-                    <Badge className="bg-sky-500/10 border-sky-500/20 text-sky-400">
+                    <Badge className="bg-info/10 border-info/20 text-info-ink">
                       {lolModeLabel(game.lol_mode)}
                     </Badge>
                   )}
                   <Badge className={effectiveStatusBadgeClass(game.status, game.scheduled_at)}>{effectiveStatusLabel(game.status, game.scheduled_at)}</Badge>
                   {myParticipation && (
                     <Badge className={myParticipation.confirmed
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-ok-ink'
-                      : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}>
+                      ? 'bg-ok/10 border-ok/20 text-ok-ink'
+                      : 'bg-warn/10 border-warn/20 text-warn-ink'}>
                       {myParticipation.confirmed ? '참가 확정' : `대기 ${myParticipation.waitlist_position ?? myParticipation.position - confirmedList.length}번`}
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm text-subtle">
-                  {formatKstSchedule(game.scheduled_at)} · 주최 {game.host_member_name ?? '알 수 없음'}
-                </p>
                 <p className="text-sm text-subtle mt-0.5">
                   {seatsTaken}/{game.capacity}명
                   {guests.length > 0 && ` (게스트 ${guests.length}명 포함)`}
@@ -677,8 +680,8 @@ export default function CustomGameDetailPage() {
                         disabled={joining}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
-                          bg-emerald-500/10 border border-emerald-500/30 text-ok-ink
-                          hover:bg-emerald-500/20 hover:text-ok-ink
+                          bg-ok/10 border border-ok/30 text-ok-ink
+                          hover:bg-ok/20 hover:text-ok-ink
                           disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {joining ? <Spinner size={4} /> : null}
@@ -694,7 +697,7 @@ export default function CustomGameDetailPage() {
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
                           bg-surface-2 border border-line text-muted
-                          hover:text-fg hover:bg-surface-2
+                          hover:text-fg hover:bg-line-strong
                           disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {joining ? <Spinner size={4} /> : null}
@@ -720,8 +723,8 @@ export default function CustomGameDetailPage() {
                         disabled={ending || deleting}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
-                          bg-red-500/10 border border-red-500/20 text-danger-ink
-                          hover:bg-red-500/20 hover:text-danger-ink
+                          bg-danger/10 border border-danger/20 text-danger-ink
+                          hover:bg-danger/20 hover:text-danger-ink
                           disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {ending ? <><Spinner size={4} /> 종료 중...</> : '내전 종료'}
@@ -734,8 +737,8 @@ export default function CustomGameDetailPage() {
                         disabled={deleting || ending}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
-                          bg-red-500/20 border border-red-500/40 text-danger-ink
-                          hover:bg-red-500/30 hover:text-danger-ink
+                          bg-danger/20 border border-danger/40 text-danger-ink
+                          hover:bg-danger/30 hover:text-danger-ink
                           disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {deleting ? <><Spinner size={4} /> 삭제 중...</> : '삭제'}
@@ -748,12 +751,12 @@ export default function CustomGameDetailPage() {
               {!isClosed && <PushNotifyToggle />}
 
               {error && (
-                <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-danger-ink text-sm font-medium">
+                <div className="mb-6 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 text-danger-ink text-sm font-medium">
                   {error}
                 </div>
               )}
               {successMsg && (
-                <div className="mb-6 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-ok-ink text-sm font-medium">
+                <div className="mb-6 px-4 py-3 rounded-xl bg-ok/10 border border-ok/20 text-ok-ink text-sm font-medium">
                   {successMsg}
                 </div>
               )}
@@ -874,8 +877,8 @@ export default function CustomGameDetailPage() {
                             disabled={addingMembers || selectedMemberIds.size === 0}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
                               text-xs font-bold transition-all duration-150
-                              bg-emerald-500/10 border border-emerald-500/25 text-ok-ink
-                              hover:bg-emerald-500/20 hover:text-ok-ink
+                              bg-ok/10 border border-ok/25 text-ok-ink
+                              hover:bg-ok/20 hover:text-ok-ink
                               disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {addingMembers ? <Spinner size={3} /> : null}
@@ -900,12 +903,11 @@ export default function CustomGameDetailPage() {
                   {guests.map((g) => (
                     <div
                       key={g.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-                      style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.15)' }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-2xl border bg-warn/5 border-warn/15"
                     >
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-warn" />
                       <p className="text-sm font-bold text-fg leading-tight">{g.display_name}</p>
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-warn-ink">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-warn/15 border border-warn/25 text-warn-ink">
                         게스트
                       </span>
                     </div>
@@ -972,8 +974,8 @@ export default function CustomGameDetailPage() {
                                   LOL_POSITIONS.indexOf(b.position as (typeof LOL_POSITIONS)[number])
                               })
                             const ts = teamIndex === 1
-                              ? { bg: 'bg-rose-500/10 border-rose-500/25', dot: 'bg-rose-500', text: 'text-danger-ink', label: '1팀 (블루)' }
-                              : { bg: 'bg-sky-500/10 border-sky-500/25', dot: 'bg-sky-500', text: 'text-sky-400', label: '2팀 (레드)' }
+                              ? { bg: 'bg-danger/10 border-danger/25', dot: 'bg-danger', text: 'text-danger-ink', label: '1팀 (블루)' }
+                              : { bg: 'bg-info/10 border-info/25', dot: 'bg-info', text: 'text-info-ink', label: '2팀 (레드)' }
                             return (
                               <div key={teamIndex} className={`rounded-xl border p-3 ${ts.bg}`}>
                                 <div className="flex items-center gap-2 mb-2">
@@ -997,7 +999,7 @@ export default function CustomGameDetailPage() {
                                           : t.guest_name ?? '알 수 없음'}
                                       </span>
                                       {!t.member_id && t.guest_name && (
-                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-warn-ink">
+                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-warn/15 border border-warn/25 text-warn-ink">
                                           외부인
                                         </span>
                                       )}
@@ -1022,19 +1024,18 @@ export default function CustomGameDetailPage() {
             </>
           )}
         </div>
-      </main>
+      </div>
+    </main>
 
       {/* 수정 모달 — 서버가 권한을 강제하므로 이 노출 제어는 UX 목적이다 */}
       {showEdit && game && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => !savingEdit && closeEdit()}
           />
           <div
-            className="relative w-full max-w-lg rounded-2xl border p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
-            style={{ background: 'var(--color-panel)', borderColor: 'var(--color-line)' }}
+            className="relative w-full max-w-lg rounded-3xl bg-panel p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto shadow-[0_24px_64px_-20px_var(--color-shadow)] ring-1 ring-line"
           >
             <h2 className="text-lg font-black text-fg">내전 수정</h2>
 
@@ -1046,9 +1047,7 @@ export default function CustomGameDetailPage() {
                 onChange={(e) => setEditTitle(e.target.value)}
                 maxLength={60}
                 disabled={savingEdit}
-                className="w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
-                  bg-surface-2 border border-line
-                  focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                className={INPUT}
               />
             </div>
 
@@ -1061,9 +1060,7 @@ export default function CustomGameDetailPage() {
                   onChange={(e) => setEditDate(e.target.value)}
                   onMouseDown={openNativePicker}
                   disabled={savingEdit}
-                  className="w-full px-3 py-3 rounded-xl text-sm font-medium text-fg cursor-pointer
-                    bg-surface-2 border border-line
-                    focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={`${INPUT} cursor-pointer`}
                 />
               </div>
               <div>
@@ -1074,9 +1071,7 @@ export default function CustomGameDetailPage() {
                   onChange={(e) => setEditTime(e.target.value)}
                   onMouseDown={openNativePicker}
                   disabled={savingEdit}
-                  className="w-full px-3 py-3 rounded-xl text-sm font-medium text-fg cursor-pointer
-                    bg-surface-2 border border-line
-                    focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={`${INPUT} cursor-pointer`}
                 />
               </div>
             </div>
@@ -1101,14 +1096,11 @@ export default function CustomGameDetailPage() {
                 value={editCapacity}
                 onChange={(e) => setEditCapacity(Number(e.target.value))}
                 disabled={savingEdit || isTeam}
-                className="w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
-                  bg-surface-2 border border-line
-                  focus:outline-none focus:border-indigo-500/50
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`${INPUT} disabled:cursor-not-allowed`}
               />
               {isTeam && <p className="mt-1.5 text-xs text-faint">레거시 롤체 팀전은 8명 고정입니다</p>}
               {demotedCount > 0 && (
-                <p className="mt-1.5 text-xs text-orange-400">
+                <p className="mt-1.5 text-xs text-warn-ink">
                   정원을 줄이면 확정자 {demotedCount}명이 대기자로 이동합니다
                 </p>
               )}
@@ -1125,10 +1117,7 @@ export default function CustomGameDetailPage() {
                 type="button"
                 onClick={closeEdit}
                 disabled={savingEdit}
-                className="flex-1 py-3 rounded-xl text-sm font-bold
-                  bg-surface-2 border border-line text-muted
-                  hover:text-fg hover:bg-surface-2
-                  disabled:opacity-40 transition-all"
+                className={`${BTN_NEUTRAL} flex-1`}
               >
                 취소
               </button>
@@ -1136,11 +1125,7 @@ export default function CustomGameDetailPage() {
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={savingEdit || !editTitle.trim() || !editDate || !editTime}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl
-                  text-sm font-bold transition-all duration-200
-                  bg-indigo-500/20 border border-indigo-500/40 text-brand-ink
-                  hover:bg-indigo-500/30 hover:text-brand-ink
-                  disabled:opacity-40 disabled:cursor-not-allowed"
+                className={`${BTN_PRIMARY} flex-1`}
               >
                 {savingEdit ? <><Spinner size={4} /> 저장 중...</> : '저장'}
               </button>
@@ -1148,6 +1133,6 @@ export default function CustomGameDetailPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

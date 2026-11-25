@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { SHELL, CONTAINER } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import PointsHistory from './PointsHistory'
 
 export const metadata: Metadata = {
@@ -11,9 +11,8 @@ export default function PointsPage() {
   return (
     <main className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="Points"
-          accent="indigo"
           title="포인트 내역"
           description="획득하거나 사용한 포인트 이력입니다."
         />

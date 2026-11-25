@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import PageHeader from '@/app/components/ui/PageHeader'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import DiscordActivityPanel from '@/app/discord/DiscordActivityPanel'
 import { CONTAINER, SHELL } from '@/lib/ui/styles'
 import { fetchDiscordMemberActivity } from '@/lib/discord/memberActivity'
@@ -48,7 +48,7 @@ export default async function DiscordActivityPage() {
   return (
     <main className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        <HeroBanner
           kicker="Discord"
           title="디스코드 활동"
           description="최근 30일(KST) 음성 시간 · 활동일 · 메시지 수를 확인하세요."

@@ -52,6 +52,7 @@ export function lolModeLabel(mode: string | null | undefined): string {
 }
 
 /** 롤 티어별 텍스트 색. /lol 페이지 TIER_STYLES 와 같은 계열을 쓴다. */
+// palette: tier — 티어 고유색(화이트리스트). 실버·아이언만 중립 토큰.
 const LOL_TIER_TEXT: Record<string, string> = {
   CHALLENGER: 'text-yellow-400',
   GRANDMASTER: 'text-red-400',
@@ -60,7 +61,7 @@ const LOL_TIER_TEXT: Record<string, string> = {
   EMERALD: 'text-emerald-400',
   PLATINUM: 'text-cyan-400',
   GOLD: 'text-amber-400',
-  SILVER: 'text-slate-400',
+  SILVER: 'text-muted',
   BRONZE: 'text-orange-400',
   IRON: 'text-muted',
 }
@@ -113,10 +114,10 @@ export function steamCapsuleUrl(appid: number): string {
 }
 
 export const GAME_KIND_BADGE: Record<GameKind, string> = {
-  tft: 'bg-amber-500/10 border-amber-500/20 text-warn-ink',
-  lol: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
-  steam: 'bg-emerald-500/10 border-emerald-500/20 text-ok-ink',
-  etc: 'bg-slate-500/10 border-slate-500/20 text-muted',
+  tft: 'bg-warn/10 border-warn/20 text-warn-ink',
+  lol: 'bg-info/10 border-info/20 text-info-ink',
+  steam: 'bg-ok/10 border-ok/20 text-ok-ink',
+  etc: 'bg-surface-2 border-line text-muted',
 }
 
 export function gameKindBadgeClass(kind: string | null | undefined): string {
@@ -132,10 +133,10 @@ export const STATUS_LABELS: Record<GameStatus, string> = {
 }
 
 export const STATUS_BADGE: Record<GameStatus, string> = {
-  recruiting: 'bg-indigo-500/10 border-indigo-500/20 text-brand-ink',
-  in_progress: 'bg-emerald-500/10 border-emerald-500/20 text-ok-ink',
-  ended: 'bg-slate-500/10 border-slate-500/20 text-muted',
-  cancelled: 'bg-red-500/10 border-red-500/20 text-danger-ink',
+  recruiting: 'bg-brand/10 border-brand/20 text-brand-ink',
+  in_progress: 'bg-ok/10 border-ok/20 text-ok-ink',
+  ended: 'bg-surface-2 border-line text-muted',
+  cancelled: 'bg-danger/10 border-danger/20 text-danger-ink',
 }
 
 export function statusLabel(status: string): string {

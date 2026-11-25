@@ -38,12 +38,12 @@ type Props = {
 }
 
 const inputCls =
-    'w-full px-4 py-3 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line placeholder:text-faint focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all'
+    'w-full px-4 py-3 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line placeholder:text-faint focus:outline-none focus:border-brand/50 focus:bg-brand/5 transition-all'
 
 const STATUS_BADGE: Record<MemberStatus, { label: string; cls: string }> = {
-    pending: { label: '승인 대기 중', cls: 'bg-amber-500/10 text-warn-ink ring-amber-500/30' },
-    approved: { label: '승인 완료', cls: 'bg-emerald-500/10 text-ok-ink ring-emerald-500/30' },
-    rejected: { label: '거절됨', cls: 'bg-red-500/10 text-danger-ink ring-red-500/30' },
+    pending: { label: '승인 대기 중', cls: 'bg-warn/10 text-warn-ink ring-warn/30' },
+    approved: { label: '승인 완료', cls: 'bg-ok/10 text-ok-ink ring-ok/30' },
+    rejected: { label: '거절됨', cls: 'bg-danger/10 text-danger-ink ring-danger/30' },
 }
 
 export default function MemberSelfForm({
@@ -190,13 +190,13 @@ export default function MemberSelfForm({
             </div>
 
             {status === 'pending' && (
-                <div className="mt-4 rounded-2xl bg-amber-500/5 ring-1 ring-amber-500/20 p-4 text-sm text-warn-ink/90">
+                <div className="mt-4 rounded-2xl bg-warn/5 ring-1 ring-warn/20 p-4 text-sm text-warn-ink/90">
                     관리자 승인 전에는 랭킹에 표시되지 않아요. 승인되면 자동으로 전적이 동기화됩니다.
                 </div>
             )}
 
             {status === 'rejected' && (
-                <div className="mt-4 rounded-2xl bg-red-500/5 ring-1 ring-red-500/20 p-4 text-sm text-danger-ink/90">
+                <div className="mt-4 rounded-2xl bg-danger/5 ring-1 ring-danger/20 p-4 text-sm text-danger-ink/90">
                     <div className="font-bold">신청이 거절되었습니다.</div>
                     {rejectedReason && <div className="mt-1">사유: {rejectedReason}</div>}
                     <div className="mt-1 text-danger-ink/70">정보를 수정하고 다시 신청할 수 있어요.</div>
@@ -204,7 +204,7 @@ export default function MemberSelfForm({
             )}
 
             {initial && migrationRequired && (
-                <div className="mt-4 rounded-2xl bg-slate-500/5 ring-1 ring-slate-500/20 p-4 text-sm text-muted">
+                <div className="mt-4 rounded-2xl bg-surface-2 ring-1 ring-line p-4 text-sm text-muted">
                     다중 라이엇 계정 기능이 아직 활성화되지 않았습니다. 아래 폼으로 대표 계정만 수정할 수 있어요.
                 </div>
             )}
@@ -220,7 +220,7 @@ export default function MemberSelfForm({
                             <button
                                 type="button"
                                 onClick={() => setAddOpen(true)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold text-brand-ink bg-indigo-500/10 hover:bg-indigo-500 hover:text-white transition-all"
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold text-brand-ink bg-brand/10 hover:bg-brand hover:text-white transition-all"
                             >
                                 계정 추가
                             </button>
@@ -258,7 +258,7 @@ export default function MemberSelfForm({
                                             <button
                                                 type="submit"
                                                 disabled={busyId === a.id}
-                                                className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all"
+                                                className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-brand hover:bg-brand/90 disabled:opacity-50 transition-all"
                                             >
                                                 {busyId === a.id ? '저장 중...' : '저장'}
                                             </button>
@@ -276,7 +276,7 @@ export default function MemberSelfForm({
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
                                                 {a.is_primary && (
-                                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/15 text-brand-ink ring-1 ring-indigo-500/30">
+                                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-brand/15 text-brand-ink ring-1 ring-brand/30">
                                                         대표
                                                     </span>
                                                 )}
@@ -298,7 +298,7 @@ export default function MemberSelfForm({
                                                     type="button"
                                                     onClick={() => handleSetPrimary(a)}
                                                     disabled={busyId === a.id}
-                                                    className="px-3 py-2 rounded-lg text-xs font-bold text-ok-ink bg-emerald-500/10 hover:bg-emerald-500 hover:text-white disabled:opacity-50 transition-all"
+                                                    className="px-3 py-2 rounded-lg text-xs font-bold text-ok-ink bg-ok/10 hover:bg-ok hover:text-white disabled:opacity-50 transition-all"
                                                 >
                                                     대표 지정
                                                 </button>
@@ -310,7 +310,7 @@ export default function MemberSelfForm({
                                                     setEditName(a.riot_game_name)
                                                     setEditTag(a.riot_tagline)
                                                 }}
-                                                className="px-3 py-2 rounded-lg text-xs font-bold text-brand-ink bg-indigo-500/10 hover:bg-indigo-500 hover:text-white transition-all"
+                                                className="px-3 py-2 rounded-lg text-xs font-bold text-brand-ink bg-brand/10 hover:bg-brand hover:text-white transition-all"
                                             >
                                                 수정
                                             </button>
@@ -323,7 +323,7 @@ export default function MemberSelfForm({
                                                         ? '마지막 라이엇 계정은 삭제할 수 없어요.'
                                                         : undefined
                                                 }
-                                                className="px-3 py-2 rounded-lg text-xs font-bold text-danger-ink bg-red-500/10 hover:bg-red-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                                className="px-3 py-2 rounded-lg text-xs font-bold text-danger-ink bg-danger/10 hover:bg-danger hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                                             >
                                                 삭제
                                             </button>
@@ -376,7 +376,7 @@ export default function MemberSelfForm({
                                 <button
                                     type="submit"
                                     disabled={busyId === 'add'}
-                                    className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all"
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-brand hover:bg-brand/90 disabled:opacity-50 transition-all"
                                 >
                                     {busyId === 'add' ? '추가 중...' : '추가하기'}
                                 </button>
@@ -456,7 +456,7 @@ export default function MemberSelfForm({
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all"
+                    className="w-full py-3 rounded-xl text-sm font-black text-white bg-brand hover:bg-brand/90 disabled:opacity-50 transition-all"
                 >
                     {loading ? '처리 중...' : initial ? '정보 수정 신청' : '등록 신청하기'}
                 </button>
@@ -469,12 +469,12 @@ export default function MemberSelfForm({
             </form>
 
             {message && (
-                <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 text-ok-ink text-xs font-bold">
+                <div className="mt-4 p-4 rounded-xl bg-ok/10 ring-1 ring-ok/20 text-ok-ink text-xs font-bold">
                     {message}
                 </div>
             )}
             {error && (
-                <div className="mt-4 p-4 rounded-xl bg-red-500/10 ring-1 ring-red-500/20 text-danger-ink text-xs font-bold">
+                <div className="mt-4 p-4 rounded-xl bg-danger/10 ring-1 ring-danger/20 text-danger-ink text-xs font-bold">
                     {error}
                 </div>
             )}

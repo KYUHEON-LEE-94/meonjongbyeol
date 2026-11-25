@@ -21,8 +21,8 @@ import {
   isRecruitClosed,
   todayKstDate,
 } from '@/lib/customGames/display'
-import { ALERT, BTN_GHOST, CARD_HOVER, CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import { ALERT, BTN_NEUTRAL, BTN_ON_HERO, BTN_PRIMARY, CARD_HOVER, CONTAINER, INPUT, SHELL } from '@/lib/ui/styles'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import EmptyState from '@/app/components/ui/EmptyState'
 
 // 마이그레이션 미적용 환경에서는 GET이 구 컬럼만 담아 degrade하므로 파생 필드를 optional로 둔다.
@@ -219,23 +219,21 @@ export default function CustomGamesPage() {
     <>
       <main className={SHELL}>
       <div className={CONTAINER}>
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <PageHeader
-            kicker="Custom Games"
-            accent="indigo"
-            title="내전"
-            description={`내전을 모집하고 참가 신청을 받습니다${
-              !loading && recruitingCount > 0 ? ` · 모집 중 ${recruitingCount}건` : ''
-            }`}
-            className=""
-          />
-          <button type="button" onClick={handleOpenModal} className={BTN_GHOST}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-              <path d="M12 4v16m8-8H4" />
-            </svg>
-            내전 모집
-          </button>
-        </div>
+        <HeroBanner
+          kicker="Custom Games"
+          title="내전"
+          description={`내전을 모집하고 참가 신청을 받습니다${
+            !loading && recruitingCount > 0 ? ` · 모집 중 ${recruitingCount}건` : ''
+          }`}
+          action={
+            <button type="button" onClick={handleOpenModal} className={BTN_ON_HERO}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+                <path d="M12 4v16m8-8H4" />
+              </svg>
+              내전 모집
+            </button>
+          }
+        />
 
           {migrationRequired && (
             <div className={`mb-6 ${ALERT.warn}`}>
@@ -287,7 +285,7 @@ export default function CustomGamesPage() {
                       <h2 className="text-base font-black text-fg leading-snug break-all">
                         <Link
                           href={`/custom-games/${g.id}`}
-                          className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-brand"
+                          className="after:absolute after:inset-0 after:rounded-3xl after:content-[''] focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-brand"
                         >
                           {g.title}
                         </Link>
@@ -311,7 +309,7 @@ export default function CustomGamesPage() {
                         {gameKindLabel(g.game_kind, g.game_kind_label)}
                       </Badge>
                       {g.game_kind === 'lol' && g.lol_mode && (
-                        <Badge className="bg-sky-500/10 border-sky-500/20 text-sky-400">
+                        <Badge className="bg-info/10 border-info/20 text-info-ink">
                           {lolModeLabel(g.lol_mode)}
                         </Badge>
                       )}
@@ -319,14 +317,14 @@ export default function CustomGamesPage() {
                         {taken}/{capacity}
                       </Badge>
                       {waitlistCount > 0 && (
-                        <Badge className="bg-orange-500/10 border-orange-500/20 text-orange-400">
+                        <Badge className="bg-warn/10 border-warn/20 text-warn-ink">
                           대기 {waitlistCount}명
                         </Badge>
                       )}
                       {mine && (
                         <Badge className={mine.confirmed
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-ok-ink'
-                          : 'bg-orange-500/10 border-orange-500/20 text-orange-400'}>
+                          ? 'bg-ok/10 border-ok/20 text-ok-ink'
+                          : 'bg-warn/10 border-warn/20 text-warn-ink'}>
                           {mine.confirmed ? '참가 확정' : `대기 ${mine.waitlist_position ?? '-'}번`}
                         </Badge>
                       )}
@@ -345,8 +343,8 @@ export default function CustomGamesPage() {
                           disabled={busy}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                             text-xs font-bold transition-all duration-150
-                            bg-emerald-500/10 border border-emerald-500/25 text-ok-ink
-                            hover:bg-emerald-500/20 hover:text-ok-ink
+                            bg-ok/10 border border-ok/25 text-ok-ink
+                            hover:bg-ok/20 hover:text-ok-ink
                             disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {busy ? <Spinner size={3} /> : null}
@@ -363,7 +361,7 @@ export default function CustomGamesPage() {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                             text-xs font-bold transition-all duration-150
                             bg-surface-2 border border-line text-muted
-                            hover:text-fg hover:bg-surface-2
+                            hover:text-fg hover:bg-line-strong
                             disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {busy ? <Spinner size={3} /> : null}
@@ -378,8 +376,8 @@ export default function CustomGamesPage() {
                           disabled={busy}
                           className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                             text-xs font-bold transition-all duration-150
-                            bg-red-500/10 border border-red-500/20 text-danger-ink
-                            hover:bg-red-500/20 hover:text-danger-ink
+                            bg-danger/10 border border-danger/20 text-danger-ink
+                            hover:bg-danger/20 hover:text-danger-ink
                             disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {busy ? <Spinner size={3} /> : null}
@@ -403,12 +401,11 @@ export default function CustomGamesPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => !creating && closeModal()}
           />
           <div
-            className="relative w-full max-w-lg rounded-2xl border border-line bg-panel p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-lg rounded-3xl bg-panel p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto shadow-[0_24px_64px_-20px_var(--color-shadow)] ring-1 ring-line"
           >
             <div>
               <h2 className="text-lg font-black text-fg mb-1">내전 모집</h2>
@@ -424,11 +421,7 @@ export default function CustomGamesPage() {
                 placeholder="예) 금요일 저녁 내전"
                 maxLength={60}
                 disabled={creating}
-                className="w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
-                  bg-surface-2 border border-line
-                  placeholder:text-faint
-                  focus:outline-none focus:border-indigo-500/50
-                  transition-all duration-200 disabled:opacity-50"
+                className={INPUT}
               />
             </div>
 
@@ -441,9 +434,7 @@ export default function CustomGamesPage() {
                   onChange={(e) => setDateInput(e.target.value)}
                   onMouseDown={openNativePicker}
                   disabled={creating}
-                  className="w-full px-3 py-3 rounded-xl text-sm font-medium text-fg cursor-pointer
-                    bg-surface-2 border border-line
-                    focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={`${INPUT} cursor-pointer`}
                 />
               </div>
               <div>
@@ -454,9 +445,7 @@ export default function CustomGamesPage() {
                   onChange={(e) => setTimeInput(e.target.value)}
                   onMouseDown={openNativePicker}
                   disabled={creating}
-                  className="w-full px-3 py-3 rounded-xl text-sm font-medium text-fg cursor-pointer
-                    bg-surface-2 border border-line
-                    focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={`${INPUT} cursor-pointer`}
                 />
               </div>
             </div>
@@ -470,10 +459,10 @@ export default function CustomGamesPage() {
                     type="button"
                     onClick={() => setGameKind(opt.value)}
                     disabled={creating}
-                    className={`py-2.5 rounded-xl text-sm font-bold transition-all duration-150 ${
+                    className={`min-h-11 py-2.5 rounded-2xl text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
                       gameKind === opt.value
-                        ? 'bg-indigo-500/25 border border-indigo-500/50 text-brand-ink'
-                        : 'bg-surface border border-line text-subtle hover:text-muted hover:bg-surface-2'
+                        ? 'bg-brand text-white shadow-[0_10px_24px_-12px_var(--color-brand)]'
+                        : 'bg-surface-2 text-muted hover:text-fg'
                     } disabled:opacity-50`}
                   >
                     {opt.label}
@@ -488,10 +477,7 @@ export default function CustomGamesPage() {
                   placeholder="게임 이름 (예: 배틀그라운드)"
                   maxLength={30}
                   disabled={creating}
-                  className="mt-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium text-fg
-                    bg-surface-2 border border-line
-                    placeholder:text-faint
-                    focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={`${INPUT} mt-2`}
                 />
               )}
               {gameKind === 'steam' && !migrationRequired && (
@@ -506,10 +492,10 @@ export default function CustomGamesPage() {
                         type="button"
                         onClick={() => setLolMode(mode)}
                         disabled={creating}
-                        className={`py-2.5 rounded-xl text-sm font-bold transition-all duration-150 ${
+                        className={`min-h-11 py-2.5 rounded-2xl text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
                           lolMode === mode
-                            ? 'bg-sky-500/25 border border-sky-500/50 text-brand-ink'
-                            : 'bg-surface border border-line text-subtle hover:text-muted hover:bg-surface-2'
+                            ? 'bg-brand text-white shadow-[0_10px_24px_-12px_var(--color-brand)]'
+                            : 'bg-surface-2 text-muted hover:text-fg'
                         } disabled:opacity-50`}
                       >
                         {LOL_MODE_LABELS[mode]}
@@ -539,10 +525,7 @@ export default function CustomGamesPage() {
                 value={effectiveCapacity}
                 onChange={(e) => setCapacityInput(Number(e.target.value))}
                 disabled={creating || isLol}
-                className="w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
-                  bg-surface-2 border border-line
-                  focus:outline-none focus:border-indigo-500/50
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`${INPUT} disabled:cursor-not-allowed`}
               />
               <p className="mt-1.5 text-xs text-faint">
                 {isLol
@@ -562,10 +545,7 @@ export default function CustomGamesPage() {
                 type="button"
                 onClick={closeModal}
                 disabled={creating}
-                className="flex-1 py-3 rounded-xl text-sm font-bold
-                  bg-surface-2 border border-line text-muted
-                  hover:text-fg hover:bg-surface-2
-                  disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={`${BTN_NEUTRAL} flex-1`}
               >
                 취소
               </button>
@@ -573,11 +553,7 @@ export default function CustomGamesPage() {
                 type="button"
                 onClick={handleCreate}
                 disabled={creating || !titleInput.trim() || !dateInput || !timeInput}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl
-                  text-sm font-bold transition-all duration-200
-                  bg-indigo-500/20 border border-indigo-500/40 text-brand-ink
-                  hover:bg-indigo-500/30 hover:text-brand-ink
-                  disabled:opacity-40 disabled:cursor-not-allowed"
+                className={`${BTN_PRIMARY} flex-1`}
               >
                 {creating ? <><Spinner size={4} /> 등록 중...</> : '모집 시작'}
               </button>

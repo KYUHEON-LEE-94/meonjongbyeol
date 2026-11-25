@@ -14,12 +14,12 @@ const REASON_LABEL: Record<string,string> = {
   hall_of_fame: '명예의 전당',
 }
 const REASON_STYLE: Record<string,string> = {
-  daily_login: 'bg-sky-500/10 text-sky-600',
-  custom_game_participation: 'bg-indigo-500/10 text-brand-ink',
-  cosmetic_purchase: 'bg-rose-500/10 text-rose-600',
-  shop_purchase: 'bg-rose-500/10 text-rose-600',
-  admin_adjustment: 'bg-slate-500/10 text-slate-500',
-  hall_of_fame: 'bg-amber-500/10 text-warn-ink',
+  daily_login: 'bg-info/10 text-info-ink',
+  custom_game_participation: 'bg-brand/10 text-brand-ink',
+  cosmetic_purchase: 'bg-danger/10 text-danger-ink',
+  shop_purchase: 'bg-danger/10 text-danger-ink',
+  admin_adjustment: 'bg-surface-2 text-subtle',
+  hall_of_fame: 'bg-warn/10 text-warn-ink',
 }
 const REASON_OPTIONS: [string,string][] = [['','전체 유형'],...Object.entries(REASON_LABEL)]
 

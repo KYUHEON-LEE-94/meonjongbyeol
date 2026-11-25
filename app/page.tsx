@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { supabaseService } from '@/lib/supabase/service'
-import { CARD, CONTAINER, SHELL } from '@/lib/ui/styles'
-import PageHeader from '@/app/components/ui/PageHeader'
+import { BTN_ON_HERO, CARD, CONTAINER, ICON_BTN_ROUND, LIST_ITEM, LIST_THUMB, SHELL } from '@/lib/ui/styles'
+import HeroBanner from '@/app/components/ui/HeroBanner'
 import ProfileChecklist from '@/app/components/ProfileChecklist'
 import AdminPendingNotice from '@/app/components/AdminPendingNotice'
 import HomeCalendar from '@/app/components/calendar/HomeCalendar'
@@ -72,12 +72,21 @@ export default async function DashboardPage() {
   return (
     <main className={SHELL}>
       <div className={CONTAINER}>
-        <PageHeader
+        {/* stats 는 서버가 이미 가진 공개 집계만 — 개인화 값 금지(ISR) */}
+        <HeroBanner
           kicker="Dashboard"
-          accent="amber"
-          title="먼종별"
+          title="오늘도 종겜할 사람?"
           description="종겜방 오늘의 소식 — 내전·스팀·디스코드를 한눈에"
-          className="mb-8"
+          priority
+          stats={[
+            { label: '모집 중 내전', value: `${recruiting.count}건` },
+            { label: '이번 주 디스코드 TOP', value: `${discordTop5.length}명` },
+          ]}
+          action={
+            <Link href="/custom-games" className={BTN_ON_HERO}>
+              내전 보러 가기
+            </Link>
+          }
         />
 
         <AdminPendingNotice />
@@ -88,7 +97,7 @@ export default async function DashboardPage() {
         <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <section className={`${CARD} p-5 sm:p-6 lg:col-span-2`}>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black tracking-tight text-fg">모집 중 내전</h2>
+              <h2 className="text-lg font-bold tracking-tight text-fg">모집 중 내전</h2>
               <Link href="/custom-games" className="text-xs font-bold text-brand-ink hover:text-brand-ink">
                 전체 보기 →
               </Link>
@@ -99,23 +108,27 @@ export default async function DashboardPage() {
                 {recruiting.count > 0 ? `모집 중 ${recruiting.count}건` : '지금 모집 중인 내전이 없어요.'}
               </p>
             ) : (
-              <ul className="mt-3 space-y-2">
+              <ul className="-mx-3 mt-3 space-y-1">
                 {recruiting.rows.map((game) => (
                   <li key={game.id}>
-                    <Link
-                      href={`/custom-games/${game.id}`}
-                      className="block min-h-[44px] rounded-xl border border-line bg-surface-2 px-3 py-2.5 transition-colors hover:border-line-strong"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate text-sm font-bold text-fg">{game.title}</span>
-                        <span className="shrink-0 text-xs font-bold text-brand-ink">
+                    <Link href={`/custom-games/${game.id}`} className={`${LIST_ITEM} group min-h-[56px]`}>
+                      <span className={`${LIST_THUMB} text-xs font-black text-brand-ink`} aria-hidden>
+                        {gameKindLabel(game.game_kind, game.game_kind_label).slice(0, 2)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-fg">{game.title}</span>
+                        <span className="mt-0.5 block truncate text-xs text-subtle">
                           {gameKindLabel(game.game_kind, game.game_kind_label)}
+                          {' · '}
+                          {game.scheduled_at ? formatKstShort(game.scheduled_at) : '일정 미정'}
+                          {game.capacity ? ` · 정원 ${game.capacity}명` : ''}
                         </span>
-                      </div>
-                      <p className="mt-1 text-xs text-subtle">
-                        {game.scheduled_at ? formatKstShort(game.scheduled_at) : '일정 미정'}
-                        {game.capacity ? ` · 정원 ${game.capacity}명` : ''}
-                      </p>
+                      </span>
+                      <span className={`${ICON_BTN_ROUND} group-hover:bg-brand group-hover:text-white`} aria-hidden>
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </span>
                     </Link>
                   </li>
                 ))}

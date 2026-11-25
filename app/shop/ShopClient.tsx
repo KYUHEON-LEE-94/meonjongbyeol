@@ -176,7 +176,7 @@ export default function ShopClient() {
                   key={f.id}
                   className={[
                     'rounded-2xl p-4 ring-1 transition',
-                    f.equipped ? 'bg-amber-500/10 ring-amber-400/60' : 'bg-surface-2 ring-line',
+                    f.equipped ? 'bg-warn/10 ring-warn/60' : 'bg-surface-2 ring-line',
                   ].join(' ')}
                 >
                   <div className="flex items-center gap-3">
