@@ -74,7 +74,7 @@ export default function Sidebar({ viewer }: { viewer: Viewer }) {
             <br />
             모아볼까요?
           </p>
-          <Link href="/custom-games" className={`${BTN_ON_HERO} relative mt-3 w-full text-xs`}>
+          <Link href="/custom-games?new=1" className={`${BTN_ON_HERO} relative mt-3 w-full text-xs`}>
             내전 모집하기
           </Link>
         </div>

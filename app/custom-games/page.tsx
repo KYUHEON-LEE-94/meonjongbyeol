@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import SteamThumb from '@/app/steam/SteamThumb'
@@ -61,6 +61,28 @@ function Badge({ className, children }: { className: string; children: React.Rea
       {children}
     </span>
   )
+}
+
+/** 모집 폼을 바로 여는 쿼리(?new=1). 사이드바·홈의 "내전 모집하기"가 이 링크를 쓴다. */
+const OPEN_CREATE_QUERY = 'new'
+
+/**
+ * `?new=1` 로 들어오면 모집 모달을 연 뒤 쿼리를 지운다(새로고침·뒤로가기로 다시 열리지 않게).
+ * 이미 /custom-games 에 있을 때 같은 링크를 눌러도 searchParams 변화로 다시 동작한다.
+ * useSearchParams 는 정적 프리렌더에서 Suspense 경계가 필요해 별도 컴포넌트로 분리한다.
+ */
+function OpenCreateFromQuery({ onOpen }: { onOpen: () => void }) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const onOpenRef = useRef(onOpen)
+  useEffect(() => { onOpenRef.current = onOpen })
+  const shouldOpen = searchParams.get(OPEN_CREATE_QUERY) === '1'
+  useEffect(() => {
+    if (!shouldOpen) return
+    onOpenRef.current()
+    router.replace('/custom-games', { scroll: false })
+  }, [shouldOpen, router])
+  return null
 }
 
 export default function CustomGamesPage() {
@@ -217,6 +239,9 @@ export default function CustomGamesPage() {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <OpenCreateFromQuery onOpen={handleOpenModal} />
+      </Suspense>
       <main className={SHELL}>
       <div className={CONTAINER}>
         <HeroBanner
