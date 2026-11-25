@@ -58,8 +58,8 @@ export default async function OnboardingPage() {
         <PageHeader
           kicker="Welcome"
           accent="indigo"
-          title="롤체 컴퍼니에 오신 걸 환영해요"
-          description="라이엇 ID와 스팀 계정을 등록하면 랭킹·전적·함께 할 게임을 볼 수 있어요. 둘 다 나중에 해도 괜찮아요."
+          title="먼종별에 오신 걸 환영해요"
+          description="라이엇 ID와 스팀 계정을 등록하면 롤 랭킹과 함께 할 스팀 게임을 볼 수 있어요. 둘 다 나중에 해도 괜찮아요."
           className="mb-8"
         />
 

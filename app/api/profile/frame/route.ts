@@ -19,4 +19,4 @@ export async function POST(req:Request){
  if(!admin&&frame.price_points>0){const {data:owned}=await supabaseAdmin.from('member_frame_inventory').select('frame_id').eq('member_id',mine.member.id).eq('frame_id',frame.id).maybeSingle();if(!owned)return NextResponse.json({ok:false,message:'구매한 프레임만 장착할 수 있습니다.'},{status:403})}
  const {error}=await supabaseAdmin.from('members').update({profile_frame_path:frame.image_path}).eq('id',mine.member.id);if(error)return NextResponse.json({ok:false,message:'프레임 저장에 실패했습니다.'},{status:500});invalidate();return NextResponse.json({ok:true})
 }
-function invalidate(){revalidatePath('/');revalidatePath('/profile');revalidatePath('/tft');revalidatePath('/lol')}
+function invalidate(){revalidatePath('/');revalidatePath('/profile');revalidatePath('/lol')}

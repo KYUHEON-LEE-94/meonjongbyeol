@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     }
     await mirrorPrimaryToMember(id)
 
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
     revalidatePath('/admin/members/control')
 

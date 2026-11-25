@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     // 랭킹/관리자 목록 갱신
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
     revalidatePath('/admin/members/control')
 

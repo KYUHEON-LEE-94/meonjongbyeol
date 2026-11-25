@@ -1,12 +1,12 @@
 import { OG_CONTENT_TYPE, OG_SIZE } from '@/lib/og/card'
-import { renderTftTop3Card } from '@/lib/og/presets'
+import { renderBrandCard } from '@/lib/og/presets'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const size = OG_SIZE
 export const contentType = OG_CONTENT_TYPE
-export const alt = '롤체 컴퍼니 롤체 랭킹'
+export const alt = '먼종별 — 종겜방 내전 · 스팀 · 롤 랭킹'
 
 export default function Image() {
-  return renderTftTop3Card()
+  return renderBrandCard()
 }

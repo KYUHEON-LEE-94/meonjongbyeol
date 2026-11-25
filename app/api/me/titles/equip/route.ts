@@ -19,6 +19,6 @@ export async function POST(req: Request) {
     if (isMissingFunctionError(error) || isMissingTableError(error)) return NextResponse.json({ error: '업적 기능 준비 중입니다.', migration_required: true }, { status: 503 })
     return NextResponse.json({ error: '사용할 수 없는 칭호가 포함되어 있습니다.' }, { status: 400 })
   }
-  revalidatePath('/'); revalidatePath('/profile'); revalidatePath('/tft')
+  revalidatePath('/'); revalidatePath('/profile'); revalidatePath('/lol')
   return NextResponse.json({ ok: true })
 }

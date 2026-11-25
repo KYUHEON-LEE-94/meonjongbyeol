@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/app/components/Spinner'
 import type { MemberStatus } from '@/types/supabase'
-import { tierScore } from '@/lib/tft/tierScore'
+import { compareRank } from '@/lib/constants/tierOrder'
 import { ALERT, CARD, INPUT, KICKER } from '@/lib/ui/styles'
 
 type MemberRow = {
@@ -13,12 +13,9 @@ type MemberRow = {
   riot_game_name: string
   riot_tagline: string
   status: MemberStatus
-  tft_tier: string | null
-  tft_rank: string | null
-  tft_league_points: number | null
-  tft_doubleup_tier: string | null
-  tft_doubleup_rank: string | null
-  tft_doubleup_league_points: number | null
+  lol_tier: string | null
+  lol_rank: string | null
+  lol_league_points: number | null
   sync_status: string | null
   last_sync_error: string | null
   last_sync_finished_at: string | null
@@ -240,8 +237,11 @@ export default function AdminMemberSyncPage() {
       if (sortKey === 'recent') {
         return (b.last_synced_at ?? '').localeCompare(a.last_synced_at ?? '')
       }
-      // tier: 점수 내림차순, 동점이면 이름
-      const diff = tierScore(b.tft_tier, b.tft_rank, b.tft_league_points) - tierScore(a.tft_tier, a.tft_rank, a.tft_league_points)
+      // tier: 롤 솔로랭크 내림차순, 동점이면 이름
+      const diff = compareRank(
+        { tier: a.lol_tier, rank: a.lol_rank, lp: a.lol_league_points },
+        { tier: b.lol_tier, rank: b.lol_rank, lp: b.lol_league_points },
+      )
       if (diff !== 0) return diff
       return a.member_name.localeCompare(b.member_name, 'ko')
     })
@@ -265,7 +265,7 @@ export default function AdminMemberSyncPage() {
         <div className="flex items-start justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-black text-fg tracking-tight mb-1">멤버 랭크 현황</h1>
-            <p className="text-sm text-subtle">멤버들의 TFT 정보를 조회·동기화합니다</p>
+            <p className="text-sm text-subtle">멤버들의 롤 랭크 정보를 조회·동기화합니다</p>
           </div>
 
           <button
@@ -370,7 +370,7 @@ export default function AdminMemberSyncPage() {
                   <table className="min-w-full border-collapse">
                     <thead>
                     <tr className="bg-surface border-b border-line">
-                      {['단톡방 ID', 'Riot ID', 'TFT 솔로', 'TFT 더블업', '최근 동기화'].map((label) => (
+                      {['단톡방 ID', 'Riot ID', '롤 솔로랭크', '최근 동기화'].map((label) => (
                           <th key={label} className="px-4 py-3.5 text-left text-[10px] font-black text-subtle tracking-widest uppercase whitespace-nowrap">
                             {label}
                           </th>
@@ -407,10 +407,7 @@ export default function AdminMemberSyncPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3.5">
-                              <TierBadge tier={m.tft_tier} rank={m.tft_rank} lp={m.tft_league_points} />
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <TierBadge tier={m.tft_doubleup_tier} rank={m.tft_doubleup_rank} lp={m.tft_doubleup_league_points} />
+                              <TierBadge tier={m.lol_tier} rank={m.lol_rank} lp={m.lol_league_points} />
                             </td>
                             <td className="px-4 py-3.5">
                               <span className="text-xs text-subtle font-medium whitespace-nowrap">
@@ -489,8 +486,7 @@ export default function AdminMemberSyncPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          <TierBadge tier={m.tft_tier} rank={m.tft_rank} lp={m.tft_league_points} />
-                          <TierBadge tier={m.tft_doubleup_tier} rank={m.tft_doubleup_rank} lp={m.tft_doubleup_league_points} />
+                          <TierBadge tier={m.lol_tier} rank={m.lol_rank} lp={m.lol_league_points} />
                         </div>
 
                         {failed && m.last_sync_error && (

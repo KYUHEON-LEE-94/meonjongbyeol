@@ -116,9 +116,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return NextResponse.json({ ok: false, message: memberDeleteError.message }, { status: 500 })
   }
 
-  revalidatePath('/tft')
+  revalidatePath('/lol')
   revalidatePath('/')
-  revalidatePath('/hall-of-fame')
   revalidatePath('/custom-games')
   revalidatePath('/admin/members/control')
 

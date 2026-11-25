@@ -5,7 +5,6 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { syncOneMember, STUCK_RUNNING_MINUTES } from '@/lib/sync/syncMember'
 import { doSyncMember } from '@/lib/sync/doSyncMember'
 import { writeSyncLog } from '@/lib/sync/writeSyncLog'
-import { notifyTop5EntriesIfAny } from '@/lib/sync/notifyTop5'
 import { requireAdmin } from '@/app/lib/isAdmin'
 
 export const maxDuration = 300
@@ -213,16 +212,7 @@ async function runSyncAll(params: {
   //   (revalidate=60 만으로는 배포·저트래픽 환경에서 stale 이 오래 남을 수 있다.)
   if (results.length > 0) {
     revalidatePath('/')
-    revalidatePath('/tft')
     revalidatePath('/lol')
-  }
-
-  // TOP5 신규 진입 알림(실패해도 동기화엔 영향 없음).
-  // ★ `done` 으로 거르지 않는다 — 배치가 limit 미만이면 거의 매 호출 true 라 같은 진입자가 반복 발송됐다.
-  //   대신 이번 배치에서 실제로 성공한 멤버만 후보로 넘긴다(skipped·실패 제외).
-  const syncedIds = new Set(results.filter((r) => r.ok).map((r) => r.memberId))
-  if (syncedIds.size > 0) {
-    try { await notifyTop5EntriesIfAny(syncedIds) } catch (e) { console.warn('[sync-all] TOP5 알림 실패', e instanceof Error ? e.message : '오류') }
   }
 
   console.log('[sync-all] end', {

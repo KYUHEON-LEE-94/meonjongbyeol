@@ -47,7 +47,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ ok: false, message: updateError.message }, { status: 400 })
   }
 
-  revalidatePath('/tft')
+  revalidatePath('/lol')
   revalidatePath('/')
   revalidatePath('/admin/members/control')
 
@@ -73,7 +73,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   if (!syncWarning) {
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
   }
 

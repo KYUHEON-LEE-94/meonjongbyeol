@@ -26,8 +26,6 @@ import {
   MAX_ACTIVE_GAMES_PER_HOST,
   parseCapacity,
   parseGameKind,
-  parseGameType,
-  parseMaxRounds,
   parseScheduledAt,
   parseTitle,
 } from '@/lib/customGames/constants'
@@ -196,6 +194,8 @@ export async function GET() {
     : NextResponse.json({ games: enriched })
 }
 
+const LEGACY_DEFAULT_MAX_ROUNDS = 5
+
 export async function POST(req: Request) {
   const viewer = await getViewerMember()
   if (!viewer) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
@@ -214,23 +214,17 @@ export async function POST(req: Request) {
   const title = parseTitle(body.title)
   if (!title.ok) return NextResponse.json({ error: title.message }, { status: 400 })
 
+  // game_kind 누락은 400 — 예전의 'tft' 기본값은 롤체 내전 생성 중단과 함께 제거했다.
   const kind = parseGameKind(
-    body.game_kind ?? 'tft',
+    body.game_kind,
     body.game_kind_label,
     body.steam_app_id,
     body.lol_mode,
   )
   if (!kind.ok) return NextResponse.json({ error: kind.message }, { status: 400 })
 
-  // 팀전·라운드 기록은 TFT 매치 조회를 전제하므로 다른 종류에서는 방식을 solo로 고정한다.
-  const gameType = parseGameType(kind.value.game_kind === 'tft' ? body.game_type : 'solo')
-  if (!gameType.ok) return NextResponse.json({ error: gameType.message }, { status: 400 })
-
-  const capacity = parseCapacity(body.capacity, kind.value.game_kind, gameType.value)
+  const capacity = parseCapacity(body.capacity, kind.value.game_kind, 'solo')
   if (!capacity.ok) return NextResponse.json({ error: capacity.message }, { status: 400 })
-
-  const maxRounds = parseMaxRounds(body.max_rounds)
-  if (!maxRounds.ok) return NextResponse.json({ error: maxRounds.message }, { status: 400 })
 
   const scheduledAt = parseScheduledAt(body.scheduled_date, body.scheduled_time)
   if (!scheduledAt.ok) return NextResponse.json({ error: scheduledAt.message }, { status: 400 })
@@ -261,9 +255,10 @@ export async function POST(req: Request) {
       status: 'recruiting',
       game_kind: kind.value.game_kind,
       game_kind_label: kind.value.game_kind_label,
-      game_type: gameType.value,
+      // game_type/max_rounds 는 레거시 TFT 전용 컬럼이다. 기존 스키마 기본값과 같은 값으로 채운다.
+      game_type: 'solo',
       capacity: capacity.value,
-      max_rounds: maxRounds.value,
+      max_rounds: LEGACY_DEFAULT_MAX_ROUNDS,
       scheduled_at: scheduledAt.value,
       host_member_id: viewer.member.id,
       ...(kind.value.steam_app_id !== null ? { steam_app_id: kind.value.steam_app_id } : {}),

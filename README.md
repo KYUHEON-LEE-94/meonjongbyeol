@@ -1,7 +1,8 @@
-# 🐧 롤체 컴퍼니 (lolche-company)
+# ⭐ 먼종별 (lolche-company)
 
-> 카카오톡 단톡방 멤버 전용 TFT / 리그 오브 레전드 랭킹·내전 관리 서비스.
-> Riot Games API로 랭크를 동기화하고, 스팀 연동·내전 모집·명예의 전당까지 한곳에서.
+> **먼가 종겜하는 별난 것들** — 종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹 커뮤니티.
+> 내전 모집, 스팀 같은 게임/접속 중/할인, 디스코드 활동, 캘린더를 한곳에서.
+> 운영: https://meonjongbyeol.vercel.app
 
 **비상업적**이며 **디스코드 서버 멤버만 접근 가능한 비공개 서비스**입니다.
 
@@ -9,23 +10,22 @@
 
 ## 🚀 주요 기능
 
-### 랭킹
-- **롤체(TFT)** 솔로·더블업 랭크 랭킹 보드 (티어·LP·승률, 매일 자동 동기화)
-- **롤(협곡)** 솔로 랭크 랭킹 (TFT와 별개의 Riot 앱 키 사용)
-- 대시보드 홈: **롤체 TOP 5 · 최근 랭크 변동 · 최근 매치** 요약
-- 멤버를 클릭하면 **상세 전적 패널**(랭크 변동 그래프 · 등수 분포 · 최근 매치 · 계정 탭)
-- 승인된 멤버는 누구나 개별 랭크 동기화 가능(멤버 단위 쿨다운으로 레이트리밋 보호)
+### 홈 대시보드
+- **모집 중 내전 · 디스코드 음성 TOP 5(최근 7일) · 지금 스팀 접속 중 · 캘린더 · 새 소식(롤 패치 노트 / 스팀 할인)**
+
+### 롤 랭킹
+- **롤(협곡)** 솔로 랭크 랭킹 (`/lol`, 대표 계정 기준, 장착 칭호 표시)
+- Riot API 키는 **LoL 키(`RIOT_LOL_API_KEY`) 하나만** 사용
 
 ### 계정 · 인증
 - **디스코드 OAuth 전용 로그인** (`NEXT_PUBLIC_DISCORD_GUILD_ID` 설정 시 특정 서버 멤버만 허용)
-- **라이엇 계정 최대 3개** 등록 + **대표 계정** 지정 (공개 랭킹엔 대표만 노출)
+- **라이엇 계정 최대 3개** 등록 + **대표 계정** 지정 (롤 랭킹엔 대표만 노출)
 - 멤버 자가 등록 → 관리자 승인 워크플로
 - 프로필 아바타는 **디스코드 프로필** 자동 연동, 프로필 프레임 선택
 
 ### 내전 (custom games)
-- 종류: **롤체 · 롤 · 스팀 · 기타**, 일정·정원 지정 후 참가 신청
+- 종류: **롤 · 스팀 · 기타**, 일정·정원 지정 후 참가 신청 (기존 롤체 내전 기록은 읽기 전용으로만 표시)
 - 대기열은 저장하지 않고 **신청 순번에서 파생** (승격 경합 없음)
-- **롤체 내전**: 팀 배정(개인전/2인 팀전) + 라운드별 결과 자동 수집
 - **롤 내전**: 증바람(칼바람)·협곡 선택, **드래그앤드롭 5:5 팀 배정**
   (협곡은 탑/정글/미드/원딜/서폿 포지션 슬롯, 카드에 롤 티어 표시, 외부인 카드 지원)
 - **스팀 내전**: 멤버 보유 게임 + 스팀 전체 카탈로그에서 게임 선택
@@ -53,16 +53,13 @@
   Safari 탭에서는 토글 대신 설치 안내가 표시된다
 
 ### Discord 활동
-- TFT 페이지에서 승인 멤버의 최근 30일 음성 시간·활동일·메시지 수 확인
+- `/discord` 에서 승인 멤버의 최근 30일 음성 시간·활동일·메시지 수 확인
 - DB에 연결된 Discord 계정만 활동 봇 데이터와 서버에서 매칭하며 Discord ID는 브라우저에 노출하지 않음
-- Railway 활동 API 장애 시 활동 보기만 조회 불가로 전환되고 기존 TFT 랭킹은 정상 유지
-
-### 명예의 전당
-- 시즌 마감 시점 랭크 스냅샷, 공동 순위, 추방 후에도 이름 보존
+- Railway 활동 API 장애 시 활동 보기만 조회 불가로 전환되고 다른 화면은 정상 유지
 
 ### 기타
 - 🌗 **라이트 / 다크 테마 전환** (기기 설정 자동 감지 + 수동 토글)
-- 관리자: 멤버 CRUD·승인·추방, 동기화 현황, 시즌 관리, 프레임 관리
+- 관리자: 멤버 CRUD·승인·추방, 동기화 현황, 디스코드 활동, 상점·포인트 관리
 
 ---
 
@@ -74,7 +71,7 @@
 | 스타일 | Tailwind CSS v4 + Framer Motion + @dnd-kit |
 | 데이터베이스 | Supabase (PostgreSQL) |
 | 인증 | Supabase Auth — Discord OAuth |
-| 외부 API | Riot Games API (TFT·LoL), Steam Web API, Discord Webhook |
+| 외부 API | Riot Games API (LoL), Steam Web API, Discord Webhook · 활동 API |
 | 배포 | Vercel + GitHub Actions (아래 "자동화" 참조) |
 
 ---
@@ -83,9 +80,8 @@
 
 1. 디스코드로 로그인 → 프로필에서 라이엇 계정 등록 (최대 3개, 대표 지정)
 2. 관리자 승인 → 대표 계정 랭크가 공개 랭킹에 노출
-3. 서버가 Riot API로 PUUID·랭크·매치를 수집해 Supabase에 저장
-   - TFT 키 / LoL 키는 **서로 다른 앱**이라 PUUID도 각각 발급·보관
-4. 웹 UI에서 랭킹·전적·내전·스팀 정보를 시각화
+3. 서버가 Riot API(LoL 키)로 PUUID·솔로랭크를 수집해 Supabase에 저장 (`riot_accounts.lol_puuid`)
+4. 웹 UI에서 내전·스팀·디스코드 활동·롤 랭킹을 시각화
 5. 자동화(아래)가 정기적으로 전체 동기화 (429/5xx·520 자동 재시도 백오프)
 
 ---
@@ -97,23 +93,14 @@
 
 | 작업 | 주기 | 트리거 | 엔드포인트 |
 |---|---|---|---|
-| **전체 랭크 동기화**(롤체·롤 티어/전적) | 30분~1시간 | **cron-job.org** | `/api/admin/sync-all` |
+| **전체 랭크 동기화**(롤 솔로랭크) | 30분~1시간 | **cron-job.org** | `/api/admin/sync-all` |
 | **내전 시작 임박 알림**(30분=디스코드 채널 · 60분=웹 푸시) | 5~10분 | **cron-job.org** | `/api/cron/notify-reminders` |
 | **스팀 캐시**(보유 게임·persona·온라인) | 매일 | **cron-job.org** | `/api/admin/sync-steam` |
-| 패치 노트(롤체·롤)·스팀 할인 | 매일 | GitHub Actions | `/api/cron/sync-tft-patch-notes` 등 |
+| 롤 패치 노트 · 스팀 할인 | 매일 | GitHub Actions (`sync-news.yml`) | `/api/cron/sync-lol-patch-notes`, `/api/cron/sync-steam-featured-deals` |
 | 이달의 음성왕 포인트 | 매달 1~3일 | GitHub Actions | `/api/cron/monthly-voice-award` |
-| 주간 랭크 리포트(지난 주 상승·판수·TOP3 디스코드 발송) | 매주 월 09/12/15시 KST | GitHub Actions | `/api/cron/weekly-rank-report` |
 
-> 스케줄 트리거는 **cron-job.org(고빈도·스팀) + GitHub Actions(일간 패치노트·주간 리포트·월간 음성왕)** 두 곳뿐이다.
+> 스케줄 트리거는 **cron-job.org(고빈도·스팀) + GitHub Actions(일간 롤 패치노트·스팀 할인, 월간 음성왕)** 두 곳뿐이다.
 > Vercel Cron(`vercel.json`)은 cron-job.org 와 중복이라 제거했다 — 트리거를 한 곳에 모아 중복 호출을 없앤다.
-
-> **주간 랭크 리포트**는 지난 주(월 00:00 ~ 일 24:00 KST) 상승왕·최다 플레이·현재 TOP3 를 디스코드 임베드로
-> 1회 발송한다. GitHub 예약 드롭 대비로 월요일 3회 호출하지만 `weekly_rank_report_state` 단일행
-> compare-and-set(주 시작일 키)으로 **발송은 주당 1회**다. 마이그레이션 미적용·웹훅 미설정·이미 발송됨은
-> 전부 200 + `reason` 이라 워크플로가 빨개지지 않는다. SQL: `scripts/sql/20260910_weekly_rank_report.sql`.
-> 전용 채널을 쓰려면 Vercel 서버 환경변수 `DISCORD_REPORT_WEBHOOK_URL`(⚠ `NEXT_PUBLIC_` 금지)을 등록한다.
-> 미설정 시 `DISCORD_WEBHOOK_URL` 로 폴백하고, 둘 다 없으면 발송을 건너뛴다.
-> 관리자 미리보기는 `POST /api/admin/weekly-rank-report?dry_run=1`(발송·선점 없음).
 
 ### ⚠ 고빈도 크론은 cron-job.org 를 쓴다 (GitHub Actions 아님)
 
@@ -129,7 +116,7 @@ GitHub Actions 의 예약 실행(`schedule:`)은 **best-effort 라 분 단위 �
 2. Method: **GET**
 3. URL: `https://<배포도메인>/api/admin/sync-all`, `https://<배포도메인>/api/cron/notify-reminders`
 
-> `sync-all` 은 한 배치가 멤버당 ~8초(매치 상세 대기)라 응답이 30초를 넘긴다.
+> `sync-all` 은 배치 처리라 응답이 30초를 넘길 수 있다.
 > cron-job.org 타임아웃(무료 30초)에 걸려 실제로는 성공해도 "Failed (timeout)"으로 기록되므로,
 > **GET 크론은 작업을 백그라운드로 예약하고 즉시 202 를 반환**한다(`after()`, 실제 동기화는 Vercel
 > `maxDuration=300s` 안에서 계속 돈다). 크론은 202 를 성공으로 보고, 결과는 Vercel 로그·`sync_logs`에서 확인.
@@ -137,6 +124,13 @@ GitHub Actions 의 예약 실행(`schedule:`)은 **best-effort 라 분 단위 �
 
 > Vercel 환경변수에 `CRON_SECRET`·`DISCORD_WEBHOOK_URL` 등록 필요.
 > GitHub 저장소 Secrets(`SITE_URL`·`CRON_SECRET`)는 남은 일간/월간 워크플로가 계속 쓴다.
+
+### Vercel 환경변수 체크리스트 (먼종별 리모델링 후)
+
+- **필수:** `RIOT_LOL_API_KEY`, `RIOT_ACCOUNT_BASE_URL`, `RIOT_LOL_LEAGUE_BASE_URL`, `SITE_URL=https://meonjongbyeol.vercel.app`
+- **삭제 가능(더 이상 읽지 않음):** `RIOT_API_KEY`, `RIOT_TFT_LEAGUE_BASE_URL`, `RIOT_TFT_MATCH_BASE_URL`, `NEXT_PUBLIC_LOL_ENABLED`,
+  `DISCORD_REPORT_WEBHOOK_URL`, `WEEKLY_REPORT_INCLUDE_DOWN`, `RIOT_MATCH_DETAIL_DELAY_MS`, `RIOT_MATCH_ID_LOOKBACK`, `RIOT_MAX_NEW_MATCH_DETAILS`
+- GitHub Secrets `SITE_URL` 도 새 도메인으로 갱신한다(`sync-news.yml`, `monthly-voice-award.yml`).
 
 Discord 활동 보기를 사용하려면 Vercel에 아래 서버 환경변수를 추가한 뒤 재배포합니다. API 키 실제 값은 저장소에 기록하지 않습니다.
 

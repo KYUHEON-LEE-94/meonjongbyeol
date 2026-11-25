@@ -1,48 +1,22 @@
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 import { supabaseService } from '@/lib/supabase/service'
-import type { Member } from '@/types/supabase'
 import { CARD, CONTAINER, SHELL } from '@/lib/ui/styles'
 import PageHeader from '@/app/components/ui/PageHeader'
 import ProfileChecklist from '@/app/components/ProfileChecklist'
-import TodayMyRecord from '@/app/TodayMyRecord'
 import AdminPendingNotice from '@/app/components/AdminPendingNotice'
 import HomeCalendar from '@/app/components/calendar/HomeCalendar'
 import HomeNews from '@/app/components/home/HomeNews'
-import DashboardRankSections, {
-  type DashMover,
-  type DashRankMember,
-} from '@/app/DashboardRankSections'
-import { compareRank } from '@/lib/constants/tierOrder'
-import { isApexTier, tierScore } from '@/lib/tft/tierScore'
+import DashboardDiscordTop5 from '@/app/components/home/DashboardDiscordTop5'
+import SteamPresence from '@/app/steam/SteamPresence'
 import { formatKstShort, gameKindLabel } from '@/lib/customGames/display'
 import { isMissingColumnError } from '@/lib/db/pgErrors'
-import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
-import { getEquippedTitlesByMemberIds } from '@/lib/achievements/publicTitles'
-import { getCurrentSeasonPatchNotes } from '@/lib/tft/patchNotes'
 import { getLolPatchNotes } from '@/lib/lol/patchNotes'
 import { getSteamFeaturedDealSnapshot } from '@/lib/steam/featuredDealSnapshot'
-import { LOL_ENABLED } from '@/lib/constants/features'
+import { fetchWeeklyDiscordTop5 } from '@/lib/discord/weeklyTop5'
 
+// ⚠ ISR(경로 단위 공유 캐시). 이 파일에서 세션을 읽지 않는다(cookies()/auth.getUser() 금지).
+//   개인화(프로필 체크리스트·관리자 알림·캘린더·스팀 접속 중)는 전부 Client Island 가 동적 API 로 조회한다.
 export const revalidate = 60
-
-type DashMember = Pick<
-  Member,
-  | 'id'
-  | 'member_name'
-  | 'profile_image_path'
-  | 'profile_frame_path'
-  | 'discord_avatar_url'
-  | 'tft_tier'
-  | 'tft_rank'
-  | 'tft_league_points'
-  | 'tft_tier_prev'
-  | 'tft_rank_prev'
-  | 'tft_lp_prev'
-  | 'last_synced_at'
-  | 'ranking_card_effect_key'
-  | 'ranking_card_bg_image'
->
 
 type RecruitingGame = {
   id: string
@@ -53,27 +27,13 @@ type RecruitingGame = {
   capacity: number | null
 }
 
-const MEMBER_COLUMNS =
-  'id,member_name,profile_image_path,profile_frame_path,ranking_card_effect_key,ranking_card_bg_image,tft_tier,tft_rank,tft_league_points,tft_tier_prev,tft_rank_prev,tft_lp_prev,last_synced_at'
-const LEGACY_MEMBER_COLUMNS =
-  'id,member_name,profile_image_path,profile_frame_path,tft_tier,tft_rank,tft_league_points,tft_tier_prev,tft_rank_prev,tft_lp_prev,last_synced_at'
-
-async function fetchDashboardMembers() {
-  const full = await withAvatarColumn((cols) => supabase.from('members').select(`${MEMBER_COLUMNS}${cols}`).eq('status', 'approved'))
-  if (!full.error || !isMissingColumnError(full.error)) return full
-  const legacy = await withAvatarColumn((cols) => supabase.from('members').select(`${LEGACY_MEMBER_COLUMNS}${cols}`).eq('status', 'approved'))
-  return legacy.error ? legacy : { ...legacy, data: ((legacy.data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({ ...row, ranking_card_effect_key: null, ranking_card_bg_image: null })) }
-}
-
-function titleCase(tier: string) {
-  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase()
-}
-
-function formatRank(tier: string | null, rank: string | null, lp: number | null) {
-  if (!tier) return '언랭'
-  // 마스터 이상은 디비전이 없다. 저장된 'I' 를 그대로 보여주면 오정보가 된다.
-  const division = rank && !isApexTier(tier) ? ` ${rank}` : ''
-  return `${titleCase(tier)}${division} ${lp ?? 0}LP`
+async function safe<T>(label: string, promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise
+  } catch (e) {
+    console.warn(`[home] ${label} 조회 실패`, e instanceof Error ? e.message : '오류 발생')
+    return fallback
+  }
 }
 
 /** 마이그레이션(20260725) 미적용 환경에서도 대시보드가 죽지 않도록 신규 컬럼 부재를 흡수한다. */
@@ -83,7 +43,7 @@ async function fetchRecruiting(): Promise<{ rows: RecruitingGame[]; count: numbe
     .select('id,title,game_kind,game_kind_label,scheduled_at,capacity', { count: 'exact' })
     .eq('status', 'recruiting')
     .order('scheduled_at', { ascending: true })
-    .limit(3)
+    .limit(5)
 
   if (!full.error) {
     return { rows: (full.data ?? []) as unknown as RecruitingGame[], count: full.count ?? 0 }
@@ -102,64 +62,12 @@ async function fetchRecruiting(): Promise<{ rows: RecruitingGame[]; count: numbe
 }
 
 export default async function DashboardPage() {
-  const [membersResult, recruiting, activeSeason, deals] = await Promise.all([
-    fetchDashboardMembers(),
-    fetchRecruiting(),
-    supabaseService.from('seasons').select('id').eq('is_active', true).maybeSingle(),
-    getSteamFeaturedDealSnapshot(),
+  const [recruiting, lolPatchNotes, deals, discordTop5] = await Promise.all([
+    safe('모집 중 내전', fetchRecruiting(), { rows: [], count: 0 }),
+    safe('롤 패치 노트', getLolPatchNotes(), []),
+    safe('스팀 할인', getSteamFeaturedDealSnapshot(), null),
+    safe('디스코드 TOP5', fetchWeeklyDiscordTop5(), []),
   ])
-
-  if (membersResult.error) console.error('Supabase error:', membersResult.error)
-
-  // 이 프로젝트의 Database 제네릭은 select 결과를 추론하지 못한다(전역적으로 never).
-  // app/tft/page.tsx 와 동일하게 명시 캐스팅으로 처리한다.
-  const members = (membersResult.data ?? []) as unknown as DashMember[]
-  const [titlesByMember, patchNotes, lolPatchNotes] = await Promise.all([
-    getEquippedTitlesByMemberIds(members.map((member) => member.id)),
-    getCurrentSeasonPatchNotes(activeSeason.data?.id ?? null),
-    LOL_ENABLED ? getLolPatchNotes() : Promise.resolve([]),
-  ])
-
-  const leaderboard = members
-    .filter((m) => !!m.tft_tier)
-    .sort((a, b) => compareRank({ tier: a.tft_tier, rank: a.tft_rank, lp: a.tft_league_points }, { tier: b.tft_tier, rank: b.tft_rank, lp: b.tft_league_points }))
-    .slice(0, 5)
-
-  // 랭크 변동은 members 같은 행의 tft_*_prev 로 파생한다 — 추가 쿼리 0.
-  const movers = members
-    .map((m) => {
-      const now = tierScore(m.tft_tier, m.tft_rank, m.tft_league_points)
-      const prev = tierScore(m.tft_tier_prev, m.tft_rank_prev, m.tft_lp_prev)
-      return { member: m, delta: now - prev, valid: now >= 0 && prev >= 0 }
-    })
-    .filter((row) => row.valid && row.delta !== 0)
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-    .slice(0, 3)
-
-  // 아바타 URL·랭크 라벨을 서버에서 확정해 넘긴다 —
-  // resolveAvatarUrl/formatRank/isApexTier 를 클라이언트 번들로 끌어오지 않기 위해서다.
-  const toDashRank = (m: DashMember): DashRankMember => ({
-    id: m.id,
-    member_name: m.member_name,
-    tft_tier: m.tft_tier,
-    tft_rank: m.tft_rank,
-    tft_league_points: m.tft_league_points,
-    avatarUrl: resolveAvatarUrl(m),
-    rankLabel: formatRank(m.tft_tier, m.tft_rank, m.tft_league_points),
-    discord_avatar_url: m.discord_avatar_url,
-    profile_frame_path: m.profile_frame_path,
-    ranking_card_effect_key: m.ranking_card_effect_key,
-    ranking_card_bg_image: m.ranking_card_bg_image,
-    equipped_titles: titlesByMember.get(m.id) ?? [],
-  })
-
-  const leaderboardView: DashRankMember[] = leaderboard.map(toDashRank)
-
-  const moversView: DashMover[] = movers.map(({ member, delta }) => ({
-    member: toDashRank(member),
-    delta,
-    prevLabel: formatRank(member.tft_tier_prev, member.tft_rank_prev, member.tft_lp_prev),
-  }))
 
   return (
     <main className={SHELL}>
@@ -167,31 +75,18 @@ export default async function DashboardPage() {
         <PageHeader
           kicker="Dashboard"
           accent="amber"
-          title="롤토 컴퍼니"
-          description="오늘 단톡방에 무슨 일이 있었는지 한눈에 확인하세요."
+          title="먼종별"
+          description="종겜방 오늘의 소식 — 내전·스팀·디스코드를 한눈에"
           className="mb-8"
         />
 
         <AdminPendingNotice />
 
-        {/* 개인 데이터는 ISR HTML에 포함하지 않고 동적 API를 호출하는 클라이언트 아일랜드에서만 표시한다. */}
-        <TodayMyRecord />
-
         {/* 완료되면 null을 반환하므로 별도 grid wrapper 없이 둔다. */}
         <ProfileChecklist />
 
-        {/* 세션·일정 데이터는 ISR HTML과 분리된 dynamic/no-store Client Island에서만 조회한다. */}
-        <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-stretch">
-          <HomeCalendar />
-          <HomeNews patchNotes={patchNotes.map((note) => ({ id: note.id, title: note.title, summary: note.summary, publishedAt: note.sourcePublishedAt ?? note.publishedAt, sourceUrl: note.sourceUrl }))} lolPatchNotes={lolPatchNotes.map((note) => ({ id: note.id, title: note.title, summary: note.summary, publishedAt: note.publishedAt, sourceUrl: note.sourceUrl }))} deals={deals} />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* TOP5 + 랭크 변동 통합 카드. 상세 패널 상태는 클라이언트 아일랜드가 소유한다. */}
-          <DashboardRankSections leaderboard={leaderboardView} movers={moversView} />
-
-          {/* ③ 모집 중 내전 */}
-          <section className={`${CARD} p-5 sm:p-6`}>
+        <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <section className={`${CARD} p-5 sm:p-6 lg:col-span-2`}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-black tracking-tight text-fg">모집 중 내전</h2>
               <Link href="/custom-games" className="text-xs font-bold text-brand-ink hover:text-brand-ink">
@@ -228,6 +123,29 @@ export default async function DashboardPage() {
             )}
           </section>
 
+          <div className="flex flex-col gap-2">
+            <DashboardDiscordTop5 entries={discordTop5} />
+            <Link href="/discord" className="self-end text-xs font-bold text-brand-ink hover:underline">
+              디스코드 활동 전체 보기 →
+            </Link>
+          </div>
+        </div>
+
+        {/* 미로그인·미승인이면 SteamPresence 가 스스로 렌더하지 않는다. */}
+        <div className="mb-2 flex justify-end">
+          <Link href="/steam" className="text-xs font-bold text-brand-ink hover:underline">
+            스팀 페이지로 →
+          </Link>
+        </div>
+        <SteamPresence />
+
+        {/* 세션·일정 데이터는 ISR HTML과 분리된 dynamic/no-store Client Island에서만 조회한다. */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-stretch">
+          <HomeCalendar />
+          <HomeNews
+            lolPatchNotes={lolPatchNotes.map((note) => ({ id: note.id, title: note.title, summary: note.summary, publishedAt: note.publishedAt, sourceUrl: note.sourceUrl }))}
+            deals={deals}
+          />
         </div>
       </div>
     </main>

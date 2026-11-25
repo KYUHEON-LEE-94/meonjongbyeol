@@ -7,8 +7,6 @@
  *   직접 업로드 기능은 제거됐다. 표시 아바타는 Discord OAuth 로그인 때 자동으로 채워지는
  *   `discord_avatar_url` 하나뿐이며, 없으면 null(호출부에서 이니셜/기본 이미지)로 내려간다.
  *   `profile_image_path`(옛 업로드 경로)는 컬럼을 DROP 하지 않고 남겨 두되 표시에는 읽지 않는다.
- *   `hall_of_fame` 스냅샷(`profile_image_snapshot`)만 예외로 `profileImageUrl()` 로 렌더한다
- *   — 추방된 멤버는 Discord 연결이 없을 수 있어 과거 스냅샷이 유일한 이미지원이다.
  *
  * ⚠ 클라이언트 컴포넌트도 import 한다. server-only 모듈을 여기서 import 하지 말 것.
  */
@@ -21,15 +19,6 @@ export type AvatarSource = {
 
 /** members 조회에 덧붙일 아바타 컬럼. `withAvatarColumn` 과 함께 쓴다. */
 export const AVATAR_COLUMN = 'discord_avatar_url'
-
-/**
- * Supabase Storage `profile-images` 공개 URL 조립.
- * 지금은 `hall_of_fame`의 `profile_image_snapshot`(추방 멤버 폴백) 렌더에만 쓰인다.
- */
-export function profileImageUrl(path: string | null | undefined): string | null {
-  if (!path) return null
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-images/${path}`
-}
 
 /**
  * Discord CDN 아바타 URL 인지 검증한다.

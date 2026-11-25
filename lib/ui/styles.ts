@@ -5,7 +5,7 @@
 // md 이상에서는 탭바가 md:hidden 이므로 원래 여백으로 되돌린다.
 export const SHELL = 'min-h-[calc(100vh-3.5rem)] px-4 pt-8 pb-28 md:py-12'
 
-// SHELL 을 쓰지 않고 자체 셸을 가진 페이지(/tft, /hall-of-fame)가 하단 탭바를 피하기 위한 여백.
+// SHELL 을 쓰지 않고 자체 셸을 가진 페이지가 하단 탭바를 피하기 위한 여백.
 export const TABBAR_SAFE_PB = 'pb-28 md:pb-0'
 export const CONTAINER = 'max-w-6xl mx-auto'
 

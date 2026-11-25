@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { CONTAINER, PANEL } from '@/lib/ui/styles'
 import ThemeToggle from '@/app/components/ThemeToggle'
 
-// 상단 메뉴를 카테고리(멤버·로그·시즌·상점)로 묶고, 상세는 드롭다운으로 편다.
+// 상단 메뉴를 카테고리(멤버·로그·상점)로 묶고, 상세는 드롭다운으로 편다.
 // 항목이 1개인 카테고리는 드롭다운 없이 바로 링크로 동작한다.
 const navCategories: { label: string; icon: string; items: { href: string; label: string; icon: string }[] }[] = [
     {
@@ -21,12 +21,6 @@ const navCategories: { label: string; icon: string; items: { href: string; label
         label: '로그', icon: 'Logs',
         items: [
             { href: '/admin/logs',             label: '동기화 로그',  icon: 'Logs' },
-        ],
-    },
-    {
-        label: '시즌', icon: 'Trophy',
-        items: [
-            { href: '/admin/seasons',          label: '시즌 관리',    icon: 'Trophy' },
         ],
     },
     {
@@ -49,12 +43,6 @@ function NavIcon({ name }: { name: string }) {
         return (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round">
                 <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-        )
-    if (name === 'Trophy')
-        return (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round">
-                <path d="M8 21h8m-4-4v4M5 3H3a2 2 0 00-2 2v3c0 2.8 2 5 4.5 5.5M19 3h2a2 2 0 012 2v3c0 2.8-2 5-4.5 5.5M5 3h14v5a7 7 0 01-14 0V3z" />
             </svg>
         )
     if (name === 'Image')
@@ -127,12 +115,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         </div>
                         {/* 좁은 화면에서는 텍스트를 숨겨 카테고리 공간을 확보한다. */}
                         <div className="hidden sm:block">
-                            <p className="text-sm font-bold text-fg leading-tight">롤체 컴퍼니</p>
+                            <p className="text-sm font-bold text-fg leading-tight">먼종별</p>
                             <p className="text-[10px] font-bold text-brand-ink tracking-widest uppercase leading-tight">Admin</p>
                         </div>
                     </Link>
 
-                    {/* 네비게이션 — 카테고리(멤버/로그/시즌/상점) 단위. 항목 1개면 링크, 여러 개면 드롭다운. */}
+                    {/* 네비게이션 — 카테고리(멤버/로그/상점) 단위. 항목 1개면 링크, 여러 개면 드롭다운. */}
                     <nav ref={navRef} className="flex min-w-0 flex-1 items-center gap-0.5 sm:gap-1">
                         {navCategories.map((category) => {
                             const active = category.items.some((item) => isActive(item.href))
@@ -204,7 +192,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {/* ── 푸터 ── */}
             <footer className="relative z-10 py-5 text-center">
                 <p className="text-xs font-medium text-faint">
-                    © 2025 롤체 컴퍼니 · Powered by Riot Games API
+                    © 2026 먼종별 · LoL 랭크 데이터: Riot Games API
                 </p>
             </footer>
         </div>

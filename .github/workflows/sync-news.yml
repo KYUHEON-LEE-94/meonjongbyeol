@@ -1,4 +1,4 @@
-name: 패치 노트(롤체·롤) & 스팀 할인 동기화
+name: 롤 패치 노트 & 스팀 할인 동기화
 
 on:
   schedule:
@@ -7,25 +7,13 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: sync-tft-patch-notes
+  group: sync-news
   cancel-in-progress: false
 
-# ⚠ 패치 노트와 스팀 할인은 독립 job 으로 분리한다.
-#   한 스텝(패치 노트)이 실패하면 curl -fsS 가 job 을 중단시켜 다음 스텝(스팀 할인)이
+# ⚠ 롤 패치 노트와 스팀 할인은 독립 job 으로 분리한다.
+#   한 스텝이 실패하면 curl -fsS 가 job 을 중단시켜 다음 스텝(스팀 할인)이
 #   아예 실행되지 않던 문제가 있었다(스팀 할인 갱신 중단의 원인). job 을 나누면 서로 영향 없다.
 jobs:
-  patch-notes:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 공식 패치 노트 동기화 호출
-        run: |
-          curl -fsS --max-time 60 -X GET \
-            "${SITE_URL%/}/api/cron/sync-tft-patch-notes" \
-            -H "Authorization: Bearer ${CRON_SECRET}"
-        env:
-          SITE_URL: ${{ secrets.SITE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-
   steam-deals:
     runs-on: ubuntu-latest
     steps:

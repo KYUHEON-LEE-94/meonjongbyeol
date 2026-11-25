@@ -1,10 +1,8 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Member } from '@/types/supabase'
 import { compareRank } from '@/lib/constants/tierOrder'
-import { LOL_ENABLED } from '@/lib/constants/features'
 import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
 import { CONTAINER, SHELL } from '@/lib/ui/styles'
 import PageHeader from '@/app/components/ui/PageHeader'
@@ -14,11 +12,13 @@ import { rankEffectClass } from '@/lib/cosmetics/rankEffects'
 import RankCardBackground from '@/app/components/ranking/RankCardBackground'
 import { isMissingColumnError } from '@/lib/db/pgErrors'
 import SafeAvatarImage from '@/app/components/SafeAvatarImage'
+import TitleBadges from '@/app/components/TitleBadges'
+import { getEquippedTitlesByMemberIds } from '@/lib/achievements/publicTitles'
 
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: '롤 랭킹 · 롤토 컴퍼니',
+  title: '롤 랭킹 · 먼종별',
 }
 
 type LolMember = Pick<
@@ -83,9 +83,6 @@ function formatRecord(wins: number | null, losses: number | null) {
 }
 
 export default async function LolPage() {
-  // 네비게이션에서 숨기는 것만으로는 부족하다. URL 직접 접근도 차단한다.
-  if (!LOL_ENABLED) notFound()
-
   let result = await withAvatarColumn((cols) =>
     supabase
       .from('members')
@@ -105,6 +102,7 @@ export default async function LolPage() {
   if (error) console.error('Supabase error:', error)
 
   const members = (data ?? []) as LolMember[]
+  const titlesByMember = await getEquippedTitlesByMemberIds(members.map((m) => m.id))
   // 언랭(데이터 없음)은 compareRank 가 999 로 취급해 자동으로 최하단에 정렬된다.
   const sorted = [...members].sort((a, b) =>
     compareRank(
@@ -168,6 +166,7 @@ export default async function LolPage() {
                     <p className="truncate text-[11px] text-subtle">
                       {m.riot_game_name}#{m.riot_tagline}
                     </p>
+                    <TitleBadges titles={titlesByMember.get(m.id)} compact className="mt-1" />
                   </div>
 
                   <div className="shrink-0 text-right">

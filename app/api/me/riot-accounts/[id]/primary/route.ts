@@ -72,7 +72,6 @@ export async function POST(_req: Request, ctx: Ctx) {
     return NextResponse.json({ ok: false, message: mirrored.message }, { status: 500 })
   }
 
-  revalidatePath('/tft')
   revalidatePath('/lol')
   revalidatePath('/')
   revalidatePath('/profile')

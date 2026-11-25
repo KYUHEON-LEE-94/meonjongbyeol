@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic'
 const HEADERS = { 'Cache-Control': 'private, no-store' }
 const SELECT = 'id,title,description,event_type,recurrence,event_date,event_month,event_day,is_all_day,event_time,member_id,members!inner(member_name)'
 type EventView = Record<string, unknown> & { id: string; title: string; event_day: number; event_time: string | null; member_id: string; member_name: string }
-type SeasonEndView = { source: 'season_end'; id: string; title: string; event_day: number; event_time: string | null; href: string; can_manage: false }
 
 function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: HEADERS }) }
 function parseInteger(value: string | null, min: number, max: number): number | null {
@@ -33,15 +32,6 @@ function customGameView(value: unknown) {
   const gameLabel = gameKind === 'lol' ? `롤 · ${lolModeLabel(typeof value.lol_mode === 'string' ? value.lol_mode : null) || '협곡'}` : gameKindLabel(gameKind, typeof value.game_kind_label === 'string' ? value.game_kind_label : null)
   return { source: 'custom_game' as const, id: value.id, title: value.title, event_day: Number(part('day')), scheduled_at: value.scheduled_at, event_time: `${part('hour')}:${part('minute')}:00`, status: typeof value.status === 'string' ? value.status : '', game_label: gameLabel, href: `/custom-games/${value.id}`, can_manage: false }
 }
-function seasonEndView(value: unknown, year: number, month: number): SeasonEndView | null {
-  if (!isRecord(value) || typeof value.id !== 'number' || typeof value.season_name !== 'string' || typeof value.scheduled_end_at !== 'string') return null
-  const date = new Date(value.scheduled_end_at)
-  if (Number.isNaN(date.getTime())) return null
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date)
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
-  if (Number(part('year')) !== year || Number(part('month')) !== month) return null
-  return { source: 'season_end', id: `season-end-${value.id}`, title: `${value.season_name} 시즌 종료 예정`, event_day: Number(part('day')), event_time: `${part('hour')}:${part('minute')}:00`, href: '/tft', can_manage: false }
-}
 function rowView(value: unknown): EventView | null {
   if (!isRecord(value)) return null
   if (typeof value.id !== 'string' || typeof value.title !== 'string' || typeof value.event_day !== 'number' || typeof value.member_id !== 'string' || (value.event_time !== null && typeof value.event_time !== 'string')) return null
@@ -63,11 +53,10 @@ export async function GET(request: NextRequest) {
   const oneTime = supabaseAdmin.from('calendar_events').select(SELECT).eq('recurrence', 'none').gte('event_date', dateString(year, month, 1)).lt('event_date', dateString(nextYear, nextMonth, 1))
   const yearly = supabaseAdmin.from('calendar_events').select(SELECT).eq('recurrence', 'yearly').eq('event_month', month)
   const customGames = supabaseAdmin.from('custom_games').select('id,title,status,game_kind,game_kind_label,lol_mode,scheduled_at,host_member_id').neq('status', 'cancelled').gte('scheduled_at', kstBoundaryIso(year, month)).lt('scheduled_at', kstBoundaryIso(nextYear, nextMonth))
-  const activeSeason = supabaseAdmin.from('seasons').select('id,season_name,scheduled_end_at').eq('is_active', true).maybeSingle()
   const memberOptions = auth.viewer.isAdmin
     ? supabaseAdmin.from('members').select('id,member_name').eq('status', 'approved').order('member_name')
     : Promise.resolve({ data: null, error: null })
-  const [onceResult, yearlyResult, customResult, seasonResult, memberResult] = await Promise.all([oneTime, yearly, customGames, activeSeason, memberOptions])
+  const [onceResult, yearlyResult, customResult, memberResult] = await Promise.all([oneTime, yearly, customGames, memberOptions])
   const permissions = { isAdmin: auth.viewer.isAdmin, canCreate: auth.viewer.isAdmin || auth.viewer.member?.status === 'approved', canCreateGame: auth.viewer.member?.status === 'approved', viewerMemberId: auth.viewer.member?.id ?? null }
   const calendarError = onceResult.error ?? yearlyResult.error
   const migrationRequired = !!calendarError && (isMissingTableError(calendarError) || isMissingColumnError(calendarError))
@@ -80,14 +69,12 @@ export async function GET(request: NextRequest) {
     return json({ error: '일정을 불러오지 못했습니다.' }, 500)
   }
   if (customResult.error && !isMissingColumnError(customResult.error)) console.error('[calendar-events] 내전 일정 조회 실패', customResult.error.message)
-  if (seasonResult.error && !isMissingColumnError(seasonResult.error)) console.error('[calendar-events] 시즌 종료 예정 조회 실패', seasonResult.error.message)
   const maxDay = daysInMonth(year, month)
   const calendarEvents = migrationRequired ? [] : [...(onceResult.data ?? []), ...(yearlyResult.data ?? [])]
     .map(rowView).filter((row): row is NonNullable<ReturnType<typeof rowView>> => row !== null && typeof row.event_day === 'number' && row.event_day <= maxDay)
     .map((row) => ({ ...row, source: 'calendar' as const, can_manage: auth.viewer.isAdmin || auth.viewer.member?.id === row.member_id }))
   const gameEvents = customResult.error ? [] : (customResult.data ?? []).map(customGameView).filter((row): row is NonNullable<ReturnType<typeof customGameView>> => row !== null)
-  const seasonEvent = seasonResult.error ? null : seasonEndView(seasonResult.data, year, month)
-  const events = [...calendarEvents, ...gameEvents, ...(seasonEvent ? [seasonEvent] : [])].sort((a, b) => Number(a.event_day) - Number(b.event_day) || String(a.event_time ?? '').localeCompare(String(b.event_time ?? '')) || String(a.title).localeCompare(String(b.title), 'ko') || String(a.id).localeCompare(String(b.id)))
+  const events = [...calendarEvents, ...gameEvents].sort((a, b) => Number(a.event_day) - Number(b.event_day) || String(a.event_time ?? '').localeCompare(String(b.event_time ?? '')) || String(a.title).localeCompare(String(b.title), 'ko') || String(a.id).localeCompare(String(b.id)))
   return json({ events, memberOptions: auth.viewer.isAdmin ? memberResult.data ?? [] : [], permissions, migration_required: migrationRequired })
 }
 

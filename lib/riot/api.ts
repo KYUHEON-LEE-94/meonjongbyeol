@@ -1,24 +1,18 @@
 // lib/riot/api.ts
-// Riot TFT Match API 공유 클라이언트
+// Riot API 공유 클라이언트 — LoL 키(RIOT_LOL_API_KEY) 단일.
 
 const ACCOUNT_BASE_URL = process.env.RIOT_ACCOUNT_BASE_URL
-const TFT_MATCH_BASE_URL = process.env.RIOT_TFT_MATCH_BASE_URL
-const TFT_LEAGUE_BASE_URL = process.env.RIOT_TFT_LEAGUE_BASE_URL
 const LOL_LEAGUE_BASE_URL = process.env.RIOT_LOL_LEAGUE_BASE_URL
 
 /**
- * Riot 앱(=API 키)은 제품 단위로 분리된다. TFT 키와 LoL 키는 서로 다른 앱이며,
- * ★ PUUID 는 키에 종속된 암호문이라 키를 섞어 쓰면 400 이 반환된다.
- * account-v1 은 "공통 엔드포인트"지만 어떤 키로 부르느냐에 따라 결과 puuid 가 다르다.
- */
-export type RiotProduct = 'tft' | 'lol'
-
-/**
+ * ★ PUUID 는 API 키에 종속된 암호문이다. 이 클라이언트는 LoL 키만 쓰므로 여기서 받은 puuid 는
+ *   `riot_accounts.lol_puuid` 에만 저장한다(레거시 TFT 키 기준 `riot_puuid` 와 값이 다르다).
+ *
  * top-level 상수로 캡처하지 않는 이유: 서버리스 인스턴스가 살아 있는 동안
  * env 가 갱신되어도 옛 값을 계속 쓰게 된다.
  */
-function apiKeyFor(product: RiotProduct): string | undefined {
-  return product === 'lol' ? process.env.RIOT_LOL_API_KEY : process.env.RIOT_API_KEY
+function lolApiKey(): string | undefined {
+  return process.env.RIOT_LOL_API_KEY
 }
 
 const warnedKeys = new Set<string>()
@@ -41,8 +35,8 @@ export class RiotApiError extends Error {
   }
 }
 
-async function riotFetch(url: string, product: RiotProduct = 'tft'): Promise<Response> {
-  const apiKey = apiKeyFor(product)
+async function riotFetch(url: string): Promise<Response> {
+  const apiKey = lolApiKey()
   if (!apiKey) {
     throw new RiotApiError('Riot API 환경 변수가 설정되지 않았습니다', 500)
   }
@@ -63,69 +57,19 @@ async function riotFetch(url: string, product: RiotProduct = 'tft'): Promise<Res
   )
 }
 
-export type RiotMatchParticipant = {
-  puuid: string
-  placement: number
-  level: number
-  time_eliminated: number
-  total_damage_to_players: number
-  augments?: unknown[]
-  traits?: unknown[]
-  units?: unknown[]
-}
-
-export type RiotMatchResponse = {
-  metadata: {
-    data_version: string
-    match_id: string
-    participants: string[]
-  }
-  info: {
-    game_datetime: number
-    game_length: number
-    queue_id: number
-    tft_set_number?: number
-    participants: RiotMatchParticipant[]
-  }
-}
-
-/**
- * account-v1 로 PUUID 를 발급받는다.
- * ★ 반환값은 `product` 키에 종속된다. 기본값 'tft' 는 riot_puuid(내전 매치 매칭에 사용)용이다.
- */
-export async function fetchPuuid(
-  gameName: string,
-  tagLine: string,
-  product: RiotProduct = 'tft',
-): Promise<string> {
+/** account-v1 로 PUUID 를 발급받는다(LoL 키 기준 → lol_puuid). */
+export async function fetchPuuid(gameName: string, tagLine: string): Promise<string> {
   if (!ACCOUNT_BASE_URL) {
     throw new RiotApiError('Riot API 환경 변수가 설정되지 않았습니다', 500)
   }
   const url = `${ACCOUNT_BASE_URL}/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`
-  const res = await riotFetch(url, product)
+  const res = await riotFetch(url)
   const data = (await res.json()) as { puuid: string }
   return data.puuid
 }
 
-export async function fetchMatchIdsByPuuid(puuid: string, count = 5): Promise<string[]> {
-  if (!TFT_MATCH_BASE_URL) {
-    throw new RiotApiError('Riot API 환경 변수가 설정되지 않았습니다', 500)
-  }
-  const url = `${TFT_MATCH_BASE_URL}/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${count}`
-  const res = await riotFetch(url)
-  return ((await res.json()) as string[]) ?? []
-}
-
-export async function fetchMatchById(matchId: string): Promise<RiotMatchResponse> {
-  if (!TFT_MATCH_BASE_URL) {
-    throw new RiotApiError('Riot API 환경 변수가 설정되지 않았습니다', 500)
-  }
-  const url = `${TFT_MATCH_BASE_URL}/matches/${encodeURIComponent(matchId)}`
-  const res = await riotFetch(url)
-  return (await res.json()) as RiotMatchResponse
-}
-
-export type TftLeagueEntry = {
+/** LoL 리그 엔트리. */
+export type LolLeagueEntry = {
   queueType: string
   tier: string
   rank: string
@@ -134,36 +78,24 @@ export type TftLeagueEntry = {
   losses: number
 }
 
-export async function fetchTftLeaguesByPuuid(puuid: string): Promise<TftLeagueEntry[]> {
-  if (!TFT_LEAGUE_BASE_URL) {
-    throw new RiotApiError('Riot API 환경 변수가 설정되지 않았습니다', 500)
-  }
-  const url = `${TFT_LEAGUE_BASE_URL}/${encodeURIComponent(puuid)}`
-  const res = await riotFetch(url)
-  return ((await res.json()) as TftLeagueEntry[]) ?? []
-}
-
-/** LoL 리그 엔트리. 응답 형태가 TFT 와 동일해 타입을 공유한다. */
-export type LolLeagueEntry = TftLeagueEntry
-
 export const LOL_SOLO_QUEUE = 'RANKED_SOLO_5x5'
 
-/** LoL 키가 없으면 LoL 단계 전체를 조용히 건너뛴다(throw 하면 멤버 수만큼 로그가 오염된다). */
-function hasLolKey(): boolean {
-  if (process.env.RIOT_LOL_API_KEY) return true
-  warnOnce('lol-key-missing', '[riot] RIOT_LOL_API_KEY 미설정 — LoL 랭크 수집을 건너뜁니다.')
+/** LoL 키가 없으면 호출 단계를 조용히 건너뛴다(throw 하면 멤버 수만큼 로그가 오염된다). */
+export function hasLolKey(): boolean {
+  if (lolApiKey()) return true
+  warnOnce('lol-key-missing', '[riot] RIOT_LOL_API_KEY 미설정 — Riot 조회를 건너뜁니다.')
   return false
 }
 
 /**
- * LoL 전용 키로 PUUID 를 발급받는다. TFT 키로 받은 riot_puuid 와는 값이 다르다.
+ * LoL 키로 PUUID 를 발급받는다(키 없음/403 degrade 래퍼). 레거시 riot_puuid 와는 값이 다르다.
  *
  * 반환값: `null` = 발급 불가(키 없음 / 403) — 호출자는 LoL 단계를 건너뛴다.
  */
 export async function fetchLolPuuid(gameName: string, tagLine: string): Promise<string | null> {
   if (!hasLolKey()) return null
   try {
-    return await fetchPuuid(gameName, tagLine, 'lol')
+    return await fetchPuuid(gameName, tagLine)
   } catch (e) {
     if (e instanceof RiotApiError && e.status === 403) {
       warnOnce(
@@ -178,7 +110,7 @@ export async function fetchLolPuuid(gameName: string, tagLine: string): Promise<
 
 /**
  * LoL 솔로랭크 엔트리 조회. **반드시 LoL 키로 발급받은 puuid 를 넘겨야 한다.**
- * TFT puuid 를 넘기면 400(Exception decrypting)이 반환된다.
+ * 레거시 riot_puuid(TFT 키)를 넘기면 400(Exception decrypting)이 반환된다.
  *
  * 반환값: `null` = 조회 불가(키 없음 / 권한 미승인) — 기존 저장값을 유지해야 한다.
  *         `[]`   = 조회 성공했으나 언랭.
@@ -191,7 +123,7 @@ export async function fetchLolLeaguesByPuuid(puuid: string): Promise<LolLeagueEn
   if (!hasLolKey()) return null
   const url = `${LOL_LEAGUE_BASE_URL}/${encodeURIComponent(puuid)}`
   try {
-    const res = await riotFetch(url, 'lol')
+    const res = await riotFetch(url)
     return ((await res.json()) as LolLeagueEntry[]) ?? []
   } catch (e) {
     if (e instanceof RiotApiError && e.status === 403) {

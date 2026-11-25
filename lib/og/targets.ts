@@ -16,7 +16,6 @@ export const OG_PREVIEW_PREFIX = '/og'
 /** 공유 가능한 경로 → `/og` 하위 메타 전용 라우트 */
 export const OG_PREVIEW_TARGETS: Record<string, string> = {
   '/': '/og/home',
-  '/tft': '/og/tft',
   '/lol': '/og/lol',
 }
 

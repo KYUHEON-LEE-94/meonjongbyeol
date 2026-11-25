@@ -53,7 +53,7 @@ export async function fetchDiscordGuildActivityForPeriod(period: DiscordActivity
   }
 }
 
-/** 최근 30일 활동 요약(기본 뷰). `/tft` 의 Discord 활동 패널이 사용한다. */
+/** 최근 30일 활동 요약(기본 뷰). */
 export function fetchDiscordGuildActivity(now: Date = new Date()): Promise<DiscordGuildActivityResult> {
   return fetchDiscordGuildActivityForPeriod(getKstDateRange(now, 30))
 }

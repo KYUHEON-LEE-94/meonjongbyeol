@@ -74,22 +74,7 @@ export function lolMigrationRequiredResponse(): NextResponse {
   )
 }
 
-/**
- * 라운드 결과 수집·팀 배정·게스트는 전부 Riot TFT 매치 조회를 전제한다.
- * UI에서 숨기는 것만으로는 API 직접 호출을 막지 못하므로 서버에서 차단한다.
- */
-export function rejectNonTftGame(game: Pick<GameRow, 'game_kind'>): NextResponse | null {
-  if (game.game_kind === 'tft') return null
-  return NextResponse.json(
-    { error: 'TFT 내전에서만 사용할 수 있는 기능입니다' },
-    { status: 400 },
-  )
-}
-
-/**
- * rejectNonTftGame 의 대칭 가드. 롤 전용 팀/포지션 배정은 이 가드로만 열린다.
- * ★ TFT 로직(teams/rounds/guests)에 롤이 새어들지 않도록 롤 전용 라우트에서만 쓴다.
- */
+/** 롤 전용 팀/포지션 배정은 이 가드로만 열린다. */
 export function rejectNonLolGame(game: Pick<GameRow, 'game_kind'>): NextResponse | null {
   if (game.game_kind === 'lol') return null
   return NextResponse.json(

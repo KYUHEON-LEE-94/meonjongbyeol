@@ -18,7 +18,7 @@ export function tierOrder(tier: string | null | undefined): number {
   return tier ? (TIER_ORDER[tier] ?? 999) : 999
 }
 
-/** 티어/랭크/LP 를 가진 값. TFT·LoL 모두 티어 10종 + 디비전 I~IV 로 동일하다. */
+/** 티어/랭크/LP 를 가진 값. LoL 티어 10종 + 디비전 I~IV. */
 export type RankLike = {
   tier: string | null | undefined
   rank: string | null | undefined
@@ -35,4 +35,11 @@ export function compareRank(a: RankLike, b: RankLike): number {
   const rankDiff = rankOrder(a.rank) - rankOrder(b.rank)
   if (rankDiff !== 0) return rankDiff
   return (b.lp ?? 0) - (a.lp ?? 0)
+}
+
+const APEX_TIERS = new Set(['MASTER', 'GRANDMASTER', 'CHALLENGER'])
+
+/** 마스터 이상은 디비전(I~IV)이 없다. */
+export function isApexTier(tier: string | null | undefined): boolean {
+  return !!tier && APEX_TIERS.has(tier.toUpperCase())
 }

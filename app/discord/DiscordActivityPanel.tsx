@@ -39,7 +39,7 @@ export default function DiscordActivityPanel({ overview }: { overview: DiscordAc
     return (
       <EmptyState>
         <span className="block font-bold text-fg">Discord 활동 정보를 불러오지 못했습니다.</span>
-        <span className="mt-1 block text-xs">잠시 후 다시 확인해 주세요. TFT 랭킹은 정상적으로 이용할 수 있습니다.</span>
+        <span className="mt-1 block text-xs">잠시 후 다시 확인해 주세요. 다른 기능은 정상적으로 이용할 수 있습니다.</span>
       </EmptyState>
     )
   }

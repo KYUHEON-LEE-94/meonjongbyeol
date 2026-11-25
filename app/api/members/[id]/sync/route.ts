@@ -1,11 +1,10 @@
-import { NextResponse, after } from 'next/server'
+import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getViewerMember, isApprovedMember } from '@/lib/customGames/authorize'
 import { syncOneMember, STUCK_RUNNING_MINUTES } from '@/lib/sync/syncMember'
 import { doSyncMember } from '@/lib/sync/doSyncMember'
 import { writeSyncLog } from '@/lib/sync/writeSyncLog'
-import { notifyTop5EntriesIfAny } from '@/lib/sync/notifyTop5'
 
 const MIN_SYNC_INTERVAL_SEC = Number(process.env.MIN_SYNC_INTERVAL_SEC ?? '300')
 
@@ -106,18 +105,7 @@ export async function POST(
 
   // 랭크 캐시가 바뀌었으니 ISR 랭킹 페이지 캐시를 무효화한다(동기화 즉시 반영).
   revalidatePath('/')
-  revalidatePath('/tft')
   revalidatePath('/lol')
-
-  // 수동 동기화도 prev 를 갱신하므로, 여기서 진입을 판정하지 않으면 그 진입 알림은 영영 유실된다.
-  // 응답을 늦추지 않도록 after() 로 미루고, 실패해도 동기화 결과에는 영향이 없다.
-  after(async () => {
-    try {
-      await notifyTop5EntriesIfAny(new Set([memberId]))
-    } catch (e) {
-      console.warn('[sync] TOP5 알림 실패', e instanceof Error ? e.message : '오류 발생')
-    }
-  })
 
   return NextResponse.json({
     ok: true,

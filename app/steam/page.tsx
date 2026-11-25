@@ -23,7 +23,7 @@ import { getSteamFeaturedDealSnapshot } from '@/lib/steam/featuredDealSnapshot'
 export const revalidate = 300
 
 export const metadata: Metadata = {
-  title: '스팀 · 롤토 컴퍼니',
+  title: '스팀 · 먼종별',
 }
 
 const STEAM_VISIBILITY_PUBLIC = 3

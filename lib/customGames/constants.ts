@@ -1,5 +1,10 @@
+/** 표시·타입용 전체 목록. 'tft'는 레거시(롤체 내전 기록 표시)용으로만 남는다. */
 export const GAME_KINDS = ['tft', 'lol', 'steam', 'etc'] as const
 export type GameKind = (typeof GAME_KINDS)[number]
+
+/** 새로 만들 수 있는 게임 종류. 롤체(tft) 내전은 더 이상 생성할 수 없다. */
+export const CREATABLE_GAME_KINDS = ['lol', 'steam', 'etc'] as const
+export type CreatableGameKind = (typeof CREATABLE_GAME_KINDS)[number]
 
 export const GAME_STATUSES = ['recruiting', 'in_progress', 'ended', 'cancelled'] as const
 export type GameStatus = (typeof GAME_STATUSES)[number]
@@ -15,7 +20,7 @@ export const TITLE_MAX = 60
 export const GAME_KIND_LABEL_MAX = 30
 export const CAPACITY_MIN = 2
 export const CAPACITY_MAX = 100
-/** tft + team(2인 팀전)은 4팀 × 2명 구조라 정원이 8로 고정된다 */
+/** 레거시 tft + team(2인 팀전) 행은 4팀 × 2명 구조라 정원이 8로 고정된다 (기존 행 PATCH 용) */
 export const TFT_TEAM_CAPACITY = 8
 /** 롤 내전은 증바람/협곡 모두 5:5 구조라 정원이 10으로 고정된다 (TFT_TEAM_CAPACITY 패턴) */
 export const LOL_CAPACITY = 10
@@ -122,9 +127,13 @@ export function parseGameKind(
   labelRaw: unknown,
   steamAppIdRaw?: unknown,
   lolModeRaw?: unknown,
+  opts?: { allowLegacyTft?: boolean },
 ): ParseResult<GameKindInput> {
+  if (kindRaw === 'tft' && !opts?.allowLegacyTft) {
+    return { ok: false, message: '롤체 내전은 더 이상 만들 수 없습니다' }
+  }
   if (!isGameKind(kindRaw)) {
-    return { ok: false, message: `게임 종류는 ${GAME_KINDS.join(', ')} 중 하나여야 합니다` }
+    return { ok: false, message: `게임 종류는 ${CREATABLE_GAME_KINDS.join(', ')} 중 하나여야 합니다` }
   }
 
   const label = typeof labelRaw === 'string' ? labelRaw.trim() : ''

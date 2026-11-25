@@ -2,7 +2,6 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isMissingColumnError } from '@/lib/db/pgErrors'
-import type { RiotAccount } from '@/types/supabase'
 
 /**
  * 대표 계정의 Riot ID *문자열*이 바뀌면 재승인을 요구할지 여부.
@@ -21,12 +20,34 @@ export const REQUIRE_REAPPROVAL_ON_RIOT_ID_CHANGE = true
  */
 export const REQUIRE_REAPPROVAL_ON_PRIMARY_SWITCH = false
 
+/**
+ * `riot_puuid` 는 레거시(TFT 키 기준) 동결 값이다. 새 값을 쓰지 않고 Riot ID 변경 시 null 로만 지운다.
+ * 여기서 읽는 이유는 `synced` 판정 폴백뿐이다.
+ */
 const RIOT_ACCOUNT_COLUMNS_BASE =
   'id, member_id, account_no, is_primary, riot_game_name, riot_tagline, riot_puuid, ' +
-  'tft_tier, tft_rank, tft_league_points, tft_wins, tft_losses, ' +
-  'tft_doubleup_tier, tft_doubleup_rank, tft_doubleup_league_points, tft_doubleup_wins, tft_doubleup_losses, ' +
   'lol_tier, lol_rank, lol_league_points, lol_wins, lol_losses, lol_synced_at, ' +
   'last_synced_at, created_at'
+
+/** listRiotAccounts 가 돌려주는 좁은 행 타입(위 컬럼 + lol_puuid). */
+export type RiotAccountRow = {
+  id: string
+  member_id: string
+  account_no: number
+  is_primary: boolean
+  riot_game_name: string
+  riot_tagline: string
+  riot_puuid: string | null
+  lol_puuid: string | null
+  lol_tier: string | null
+  lol_rank: string | null
+  lol_league_points: number | null
+  lol_wins: number | null
+  lol_losses: number | null
+  lol_synced_at: string | null
+  last_synced_at: string | null
+  created_at: string
+}
 
 /**
  * ★ `lol_puuid` 를 빼먹으면 listRiotAccounts 가 값을 안 가져와 매 동기화마다
@@ -60,7 +81,7 @@ export function riotAccountsMigrationResponse(): NextResponse {
 }
 
 export type ListAccountsResult =
-  | { ok: true; accounts: RiotAccount[] }
+  | { ok: true; accounts: RiotAccountRow[] }
   | { ok: false; missingTable: boolean; message: string }
 
 /** 대표 파생 정렬(is_primary desc, account_no asc)로 정렬된 계정 목록. */
@@ -85,7 +106,7 @@ export async function listRiotAccounts(memberId: string): Promise<ListAccountsRe
   }
 
   // 컬럼 목록이 문자열 결합이라 PostgREST 타입 추론이 걸리지 않는다.
-  const rows = (data ?? []) as unknown as Array<Omit<RiotAccount, 'lol_puuid'> & { lol_puuid?: string | null }>
+  const rows = (data ?? []) as unknown as Array<Omit<RiotAccountRow, 'lol_puuid'> & { lol_puuid?: string | null }>
   return { ok: true, accounts: rows.map((row) => ({ ...row, lol_puuid: row.lol_puuid ?? null })) }
 }
 
@@ -114,16 +135,6 @@ export function nextAccountNo(accounts: { account_no: number }[]): number | null
 
 /** 20260729_lol_puuid.sql 미적용 환경용. `lol_puuid`가 없으면 update 전체가 42703으로 죽는다. */
 export const CLEARED_RANK_COLUMNS_LEGACY = {
-  tft_tier: null,
-  tft_rank: null,
-  tft_league_points: null,
-  tft_wins: null,
-  tft_losses: null,
-  tft_doubleup_tier: null,
-  tft_doubleup_rank: null,
-  tft_doubleup_league_points: null,
-  tft_doubleup_wins: null,
-  tft_doubleup_losses: null,
   lol_tier: null,
   lol_rank: null,
   lol_league_points: null,
@@ -144,26 +155,19 @@ export const CLEARED_RANK_COLUMNS = {
   lol_puuid: null,
 } as const
 
-type MirrorOptions = {
-  /** 배지용 이전 티어(tft_*_prev) 를 함께 기록할지. 동기화 경로에서만 true. */
-  recordPrev?: boolean
-}
-
 export type MirrorResult =
-  | { ok: true; primary: RiotAccount | null }
+  | { ok: true; primary: RiotAccountRow | null }
   | { ok: false; missingTable: boolean; message: string }
 
 /**
- * ★ members.riot_* / tft_* / lol_* 캐시를 대표 계정 값으로 미러링하는 **유일한 지점**.
+ * ★ members.riot_game_name/riot_tagline + lol_* 캐시를 대표 계정 값으로 미러링하는 **유일한 지점**.
+ *   (members.riot_puuid·tft_* 는 레거시 동결 값이라 더 이상 미러링하지 않는다.)
  *
- * 공개 랭킹(`/`, `/tft`, `/lol`, `/hall-of-fame`)은 전부 members 캐시만 읽는다.
+ * 공개 랭킹(`/lol`)은 members 캐시만 읽는다.
  * 따라서 "members 캐시 == 대표 riot_accounts 값" 불변식이 깨지면 랭킹에 옛 값이 남는다.
  * 계정을 건드리는 모든 쓰기 경로는 반드시 이 함수를 통해서만 캐시를 갱신한다.
  */
-export async function mirrorPrimaryToMember(
-  memberId: string,
-  options: MirrorOptions = {},
-): Promise<MirrorResult> {
+export async function mirrorPrimaryToMember(memberId: string): Promise<MirrorResult> {
   const listed = await listRiotAccounts(memberId)
   if (!listed.ok) return listed
 
@@ -173,38 +177,11 @@ export async function mirrorPrimaryToMember(
     return { ok: true, primary: null }
   }
 
-  let prev: Record<string, string | number | null> = {}
-  if (options.recordPrev) {
-    const { data: current } = await supabaseAdmin
-      .from('members')
-      .select('tft_tier, tft_rank, tft_league_points')
-      .eq('id', memberId)
-      .maybeSingle()
-
-    prev = {
-      tft_tier_prev: current?.tft_tier ?? null,
-      tft_rank_prev: current?.tft_rank ?? null,
-      tft_lp_prev: current?.tft_league_points ?? null,
-    }
-  }
-
   const { error } = await supabaseAdmin
     .from('members')
     .update({
       riot_game_name: primary.riot_game_name,
       riot_tagline: primary.riot_tagline,
-      riot_puuid: primary.riot_puuid,
-      ...prev,
-      tft_tier: primary.tft_tier,
-      tft_rank: primary.tft_rank,
-      tft_league_points: primary.tft_league_points,
-      tft_wins: primary.tft_wins,
-      tft_losses: primary.tft_losses,
-      tft_doubleup_tier: primary.tft_doubleup_tier,
-      tft_doubleup_rank: primary.tft_doubleup_rank,
-      tft_doubleup_league_points: primary.tft_doubleup_league_points,
-      tft_doubleup_wins: primary.tft_doubleup_wins,
-      tft_doubleup_losses: primary.tft_doubleup_losses,
       lol_tier: primary.lol_tier,
       lol_rank: primary.lol_rank,
       lol_league_points: primary.lol_league_points,

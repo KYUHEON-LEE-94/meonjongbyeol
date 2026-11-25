@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     if ((ownedResult.count ?? 0) > 0 || (equippedResult.count ?? 0) > 0) {
         const { error: deactivateError } = await supabaseAdmin.from('ranking_card_effects').update({ is_active: false, is_purchasable: false }).eq('id', id)
         if (deactivateError) return NextResponse.json({ ok: false, message: '배경 비활성화에 실패했습니다.' }, { status: 500 })
-        revalidatePath('/profile'); revalidatePath('/tft'); revalidatePath('/lol'); revalidatePath('/'); revalidatePath('/admin/profile-frames'); revalidatePath('/shop')
+        revalidatePath('/profile'); revalidatePath('/lol'); revalidatePath('/'); revalidatePath('/admin/profile-frames'); revalidatePath('/shop')
         return NextResponse.json({ ok: true, deactivated: true })
     }
 
@@ -39,7 +39,6 @@ export async function POST(req: Request) {
 
     revalidatePath('/')
     revalidatePath('/profile')
-    revalidatePath('/tft')
     revalidatePath('/lol')
     revalidatePath('/admin/profile-frames')
     revalidatePath('/shop')

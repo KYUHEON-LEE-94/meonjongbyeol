@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import AuthButtons from '@/app/components/AuthButtons'
 import ThemeToggle from '@/app/components/ThemeToggle'
-import { LOL_ENABLED } from '@/lib/constants/features'
 
-type IconKey = 'home' | 'tft' | 'lol' | 'steam' | 'custom' | 'trophy' | 'shop'
+type IconKey = 'home' | 'lol' | 'steam' | 'custom' | 'discord' | 'shop'
 
 type NavItem = {
   href: string
@@ -23,19 +23,15 @@ type NavItem = {
   inTabBar: boolean
 }
 
-// LoL 은 Riot 제품 권한 승인 전까지 비활성. /lol 자체도 404 를 반환하므로 링크를 노출하지 않는다.
 // 상단/하단 네비가 이 배열 하나를 공유한다.
+// 하단 탭바는 grid-cols-4 고정이라 4개(홈·내전·스팀·롤)만 담는다. 나머지는 inTabBar:false.
 const NAV_ITEMS: NavItem[] = [
   { href: '/', label: '홈', exact: true, icon: 'home', iconOnlyOnTop: true, inTabBar: true },
-  { href: '/tft', label: '롤체', tabLabel: '롤체', icon: 'tft', inTabBar: true },
-  ...(LOL_ENABLED
-    ? [{ href: '/lol', label: '롤', icon: 'lol' as IconKey, inTabBar: false }]
-    : []),
   { href: '/custom-games', label: '내전', icon: 'custom', inTabBar: true },
   { href: '/steam', label: '스팀', icon: 'steam', inTabBar: true },
-  // 하단 탭바는 grid-cols-4 고정이라 4개(home/tft/custom/steam)만 담는다. 나머지는 inTabBar:false.
-  { href: '/hall-of-fame', label: '명예의 전당', icon: 'trophy', inTabBar: false },
-  // 상점은 명예의 전당 뒤. 이모지로 눈에 띄게.
+  { href: '/lol', label: '롤', icon: 'lol', inTabBar: true },
+  { href: '/discord', label: '디스코드', icon: 'discord', inTabBar: false },
+  // 상점은 맨 뒤. 이모지로 눈에 띄게.
   { href: '/shop', label: '🛍️ 상점', icon: 'shop', inTabBar: false },
 ]
 
@@ -51,13 +47,6 @@ const ICON_PATHS: Record<IconKey, React.ReactNode> = {
     <>
       <path d="M3 10.5 12 3l9 7.5" />
       <path d="M5 9.8V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.8" />
-    </>
-  ),
-  tft: (
-    <>
-      <circle cx="12" cy="6.5" r="2.8" />
-      <path d="M9.2 10.5c.4 2-.7 3.2-1.2 5h8c-.5-1.8-1.6-3-1.2-5" />
-      <path d="M6.5 21h11l-1-3.5h-9z" />
     </>
   ),
   lol: (
@@ -84,11 +73,13 @@ const ICON_PATHS: Record<IconKey, React.ReactNode> = {
       <circle cx="18.2" cy="14.6" r="1" />
     </>
   ),
-  trophy: (
+  discord: (
     <>
-      <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
-      <path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3" />
-      <path d="M12 14v3M8.5 20h7l-.5-3h-6z" />
+      <path d="M7.5 6.5c3-1.3 6-1.3 9 0 1.6 2.3 2.4 4.9 2.5 8-1.4 1.1-2.8 1.8-4.3 2.2l-.9-1.6" />
+      <path d="M7.5 6.5C5.9 8.8 5.1 11.4 5 14.5c1.4 1.1 2.8 1.8 4.3 2.2l.9-1.6" />
+      <path d="M8.5 15.2c2.3.9 4.7.9 7 0" />
+      <circle cx="9.6" cy="11.6" r="1" />
+      <circle cx="14.4" cy="11.6" r="1" />
     </>
   ),
   shop: (
@@ -275,8 +266,15 @@ export default function SiteNav() {
             </button>
 
             <Link href="/" className="flex shrink-0 items-center gap-2 text-sm font-black tracking-tight text-fg">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg border border-brand/20 bg-brand/10 text-[10px] font-black text-brand-ink" aria-hidden>LC</span>
-              롤토 컴퍼니
+              <Image
+                src="/images/brand/meonjongbyeol.png"
+                alt=""
+                width={24}
+                height={24}
+                className="h-6 w-6 rounded-lg border border-line bg-white object-cover"
+                priority
+              />
+              먼종별
             </Link>
 
             {menuOpen && (

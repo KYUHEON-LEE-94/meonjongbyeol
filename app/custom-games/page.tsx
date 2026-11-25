@@ -7,7 +7,7 @@ import Link from 'next/link'
 import SteamThumb from '@/app/steam/SteamThumb'
 import { Spinner } from '@/app/components/Spinner'
 import SteamGamePicker, { type SteamGameSelection } from '@/app/custom-games/_components/SteamGamePicker'
-import { LOL_CAPACITY, LOL_MODES, TFT_TEAM_CAPACITY, type GameKind, type LolMode } from '@/lib/customGames/constants'
+import { LOL_CAPACITY, LOL_MODES, type CreatableGameKind, type LolMode } from '@/lib/customGames/constants'
 import {
   GAME_KIND_OPTIONS,
   LOL_MODE_LABELS,
@@ -30,8 +30,6 @@ type GameRow = {
   id: string
   title: string
   status: string
-  game_type: string
-  max_rounds: number
   created_at: string
   ended_at: string | null
   game_kind?: string
@@ -78,12 +76,10 @@ export default function CustomGamesPage() {
   const [dateInput, setDateInput] = useState('')
   const [timeInput, setTimeInput] = useState('21:00')
   const [capacityInput, setCapacityInput] = useState(8)
-  const [gameKind, setGameKind] = useState<GameKind>('tft')
+  const [gameKind, setGameKind] = useState<CreatableGameKind>('lol')
   const [kindLabel, setKindLabel] = useState('')
   const [steamGame, setSteamGame] = useState<SteamGameSelection>({ label: '', appId: null })
   const [lolMode, setLolMode] = useState<LolMode>('rift')
-  const [gameType, setGameType] = useState<'solo' | 'team'>('solo')
-  const [maxRounds, setMaxRounds] = useState(5)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -121,20 +117,17 @@ export default function CustomGamesPage() {
   useEffect(() => { loadGames() }, [loadGames])
 
   const isLol = gameKind === 'lol'
-  const isTftTeam = gameKind === 'tft' && gameType === 'team'
-  const effectiveCapacity = isLol ? LOL_CAPACITY : isTftTeam ? TFT_TEAM_CAPACITY : capacityInput
+  const effectiveCapacity = isLol ? LOL_CAPACITY : capacityInput
 
   const handleOpenModal = () => {
     setTitleInput('')
     setDateInput(todayKstDate())
     setTimeInput('21:00')
     setCapacityInput(8)
-    setGameKind('tft')
+    setGameKind('lol')
     setKindLabel('')
     setSteamGame({ label: '', appId: null })
     setLolMode('rift')
-    setGameType('solo')
-    setMaxRounds(5)
     setCreateError(null)
     setShowModal(true)
   }
@@ -172,7 +165,6 @@ export default function CustomGamesPage() {
                 : null,
           ...(gameKind === 'steam' ? { steam_app_id: steamGame.appId } : {}),
           ...(gameKind === 'lol' ? { lol_mode: lolMode } : {}),
-          ...(gameKind === 'tft' ? { game_type: gameType, max_rounds: maxRounds } : {}),
         }),
       })
       const body = await res.json()
@@ -318,13 +310,6 @@ export default function CustomGamesPage() {
                       <Badge className={gameKindBadgeClass(g.game_kind)}>
                         {gameKindLabel(g.game_kind, g.game_kind_label)}
                       </Badge>
-                      {g.game_kind === 'tft' && (
-                        <Badge className={g.game_type === 'team'
-                          ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
-                          : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}>
-                          {g.game_type === 'team' ? '2인 팀전' : '개인전'}
-                        </Badge>
-                      )}
                       {g.game_kind === 'lol' && g.lol_mode && (
                         <Badge className="bg-sky-500/10 border-sky-500/20 text-sky-400">
                           {lolModeLabel(g.lol_mode)}
@@ -478,7 +463,7 @@ export default function CustomGamesPage() {
 
             <div>
               <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">게임 종류</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {GAME_KIND_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
@@ -540,61 +525,10 @@ export default function CustomGamesPage() {
               )}
               {(gameKind === 'steam' || gameKind === 'etc') && (
                 <p className="mt-1.5 text-xs text-faint">
-                  롤체 외 내전은 모집·참가 관리만 지원합니다 (라운드 결과 기록 없음)
+                  스팀·기타 내전은 모집·참가 관리만 지원합니다
                 </p>
               )}
             </div>
-
-            {gameKind === 'tft' && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">게임 방식</label>
-                  <div className="flex gap-2">
-                    {([['solo', '개인전'], ['team', '팀전 (4팀 × 2인)']] as const).map(([type, label]) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setGameType(type)}
-                        disabled={creating}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 ${
-                          gameType === type
-                            ? type === 'team'
-                              ? 'bg-violet-500/25 border border-violet-500/50 text-violet-300'
-                              : 'bg-indigo-500/25 border border-indigo-500/50 text-brand-ink'
-                            : 'bg-surface border border-line text-subtle hover:text-muted hover:bg-surface-2'
-                        } disabled:opacity-50`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {isTftTeam && (
-                    <p className="mt-1.5 text-xs text-violet-400/70">팀전은 4팀 × 2인 구조라 정원이 8명으로 고정됩니다</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">최대 판수</label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setMaxRounds(n)}
-                        disabled={creating}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 ${
-                          maxRounds === n
-                            ? 'bg-indigo-500/25 border border-indigo-500/50 text-brand-ink'
-                            : 'bg-surface border border-line text-subtle hover:text-muted hover:bg-surface-2'
-                        } disabled:opacity-50`}
-                      >
-                        {n}판
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
 
             <div>
               <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">정원</label>
@@ -604,7 +538,7 @@ export default function CustomGamesPage() {
                 max={100}
                 value={effectiveCapacity}
                 onChange={(e) => setCapacityInput(Number(e.target.value))}
-                disabled={creating || isTftTeam || isLol}
+                disabled={creating || isLol}
                 className="w-full px-4 py-3 rounded-xl text-sm font-medium text-fg
                   bg-surface-2 border border-line
                   focus:outline-none focus:border-indigo-500/50
@@ -613,9 +547,7 @@ export default function CustomGamesPage() {
               <p className="mt-1.5 text-xs text-faint">
                 {isLol
                   ? '롤 내전은 5:5 구조라 10명 고정입니다'
-                  : isTftTeam
-                    ? '팀전은 8명 고정입니다'
-                    : '2~100명. 정원을 넘는 신청은 자동으로 대기자가 됩니다'}
+                  : '2~100명. 정원을 넘는 신청은 자동으로 대기자가 됩니다'}
               </p>
             </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabaseClient } from '@/lib/supabase'
 import { sanitizeNextPath } from '@/lib/auth/discord'
 import { GUILD_GATE_ID } from '@/lib/constants/features'
@@ -17,7 +18,7 @@ function DiscordIcon() {
 
 /** 서비스가 무엇을 제공하는지 로그인 전에 한눈에 보여주는 소개 항목. */
 const LOGIN_FEATURES: { title: string; desc: string; path: string }[] = [
-  { title: '실시간 랭킹', desc: 'TFT · LoL 티어 추적', path: 'M8 21h8m-4-4v4M5 3H3a2 2 0 00-2 2v3c0 2.8 2 5 4.5 5.5M19 3h2a2 2 0 012 2v3c0 2.8-2 5-4.5 5.5M5 3h14v5a7 7 0 01-14 0V3z' },
+  { title: '롤 랭킹', desc: '솔로랭크 티어 추적', path: 'M8 21h8m-4-4v4M5 3H3a2 2 0 00-2 2v3c0 2.8 2 5 4.5 5.5M19 3h2a2 2 0 012 2v3c0 2.8-2 5-4.5 5.5M5 3h14v5a7 7 0 01-14 0V3z' },
   { title: '내전 모집', desc: '대기열 · 팀 배정', path: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
   { title: '스팀 라운지', desc: '함께할 게임 찾기', path: 'M21 12a9 9 0 11-6.219-8.56M9 12l2 2 4-4' },
   { title: '포인트 · 꾸미기', desc: '출석 · 프레임 · 배경', path: 'M5 3l1.5 4L11 8.5 6.5 10 5 14l-1.5-4L-1 8.5 3.5 7 5 3zm12 5l1 2.5L20.5 12 18 13l-1 2.5L16 13l-2.5-1 2.5-1 1-2.5z' },
@@ -88,16 +89,17 @@ function LoginInner() {
         <div className="relative w-full max-w-md">
           {/* 브랜드 히어로 */}
           <div className="mb-8 text-center">
-            <div
-                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl shadow-xl"
-                style={{ background: 'linear-gradient(135deg,#6366f1,#4f46e5)' }}
-            >
-              <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 21h8m-4-4v4M5 3H3a2 2 0 00-2 2v3c0 2.8 2 5 4.5 5.5M19 3h2a2 2 0 012 2v3c0 2.8-2 5-4.5 5.5M5 3h14v5a7 7 0 01-14 0V3z" />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-fg">롤체 컴퍼니</h1>
-            <p className="mt-2 text-sm text-muted">카카오톡 단톡방 전용 TFT 랭킹 · 내전 · 스팀 라운지</p>
+            <Image
+                src="/images/brand/meonjongbyeol.png"
+                alt="먼종별 — 먼가 종겜하는 별난 것들"
+                width={160}
+                height={160}
+                priority
+                className="mx-auto mb-4 h-40 w-40 rounded-3xl bg-white object-contain shadow-xl ring-1 ring-line"
+            />
+            <h1 className="text-3xl font-black tracking-tight text-fg">먼종별</h1>
+            <p className="mt-1 text-sm font-bold text-warn-ink">먼가 종겜하는 별난 것들</p>
+            <p className="mt-2 text-sm text-muted">종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹</p>
           </div>
 
           <div className={`${CARD} p-7 sm:p-8`}>
@@ -137,13 +139,13 @@ function LoginInner() {
 
             <p className="mt-3 text-center text-xs text-faint">
               {GUILD_GATE_ID
-                ? '롤체 컴퍼니 Discord 서버 멤버만 로그인할 수 있어요.'
+                ? '먼종별 Discord 서버 멤버만 로그인할 수 있어요.'
                 : '로그인하면 자동으로 멤버 프로필이 준비됩니다.'}
             </p>
           </div>
 
           <p className="mt-6 text-center text-[11px] font-medium text-faint">
-            © 2025 롤체 컴퍼니 · Powered by Riot Games API
+            © 2026 먼종별 · LoL 랭크 데이터: Riot Games API
           </p>
         </div>
       </div>

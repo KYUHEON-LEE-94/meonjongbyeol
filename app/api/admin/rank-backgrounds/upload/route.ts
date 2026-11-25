@@ -64,7 +64,6 @@ export async function POST(req: Request) {
 
     revalidatePath('/')
     revalidatePath('/profile')
-    revalidatePath('/tft')
     revalidatePath('/lol')
     revalidatePath('/admin/profile-frames')
     revalidatePath('/shop')

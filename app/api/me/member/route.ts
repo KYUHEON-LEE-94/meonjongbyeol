@@ -216,7 +216,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: synced.message }, { status: synced.status })
     }
 
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
     revalidatePath('/profile')
 
@@ -284,7 +284,7 @@ export async function POST(req: Request) {
         )
       }
 
-      revalidatePath('/tft')
+      revalidatePath('/lol')
       revalidatePath('/')
       revalidatePath('/profile')
       return NextResponse.json({ ok: true, status: 'pending', message: '신청이 접수되었습니다.' })
@@ -355,7 +355,7 @@ export async function POST(req: Request) {
       )
     }
 
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
     revalidatePath('/profile')
 
@@ -406,7 +406,7 @@ export async function POST(req: Request) {
     )
   }
 
-  revalidatePath('/tft')
+  revalidatePath('/lol')
   revalidatePath('/')
   revalidatePath('/profile')
 

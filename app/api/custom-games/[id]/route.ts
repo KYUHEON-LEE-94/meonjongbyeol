@@ -51,15 +51,16 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   const { data: memberRows } = await supabaseAdmin
     .from('members')
-    .select('id, member_name, riot_game_name, riot_tagline, riot_puuid, lol_tier, lol_rank, lol_league_points')
+    .select('id, member_name, riot_game_name, riot_tagline, lol_tier, lol_rank, lol_league_points')
     .in('id', lookupIds.length > 0 ? lookupIds : ['__none__'])
 
   const memberMap = new Map((memberRows ?? []).map((m) => [m.id, m]))
 
   // ── 게스트 참가자 ─────────────────────────────────────────────────
+  // 레거시 롤체 내전의 게스트도 정원을 소비하므로(effectiveMemberCapacity) 조회는 유지한다.
   const { data: guestRows } = await supabaseAdmin
     .from('custom_game_guests')
-    .select('id, display_name, riot_puuid')
+    .select('id, display_name')
     .eq('custom_game_id', id)
     .order('joined_at')
 
@@ -83,7 +84,6 @@ export async function GET(_req: Request, ctx: Ctx) {
       member_name: m?.member_name ?? '알 수 없음',
       riot_game_name: m?.riot_game_name ?? '',
       riot_tagline: m?.riot_tagline ?? '',
-      riot_puuid: m?.riot_puuid ?? null,
       lol_tier: m?.lol_tier ?? null,
       lol_rank: m?.lol_rank ?? null,
       lol_league_points: m?.lol_league_points ?? null,
@@ -98,60 +98,6 @@ export async function GET(_req: Request, ctx: Ctx) {
   const waitlistParticipants = waitlist.map((p, i) => toParticipant(p, confirmed.length + i, false))
   // 기존 소비자를 위해 전체 목록도 그대로 유지한다.
   const participants = [...confirmedParticipants, ...waitlistParticipants]
-
-  // ── 라운드 + 결과 ─────────────────────────────────────────────────
-  const { data: roundRows } = await supabaseAdmin
-    .from('custom_game_rounds')
-    .select('id, round_number, match_id, played_at')
-    .eq('custom_game_id', id)
-    .order('round_number')
-
-  const roundIds = (roundRows ?? []).map((r) => r.id)
-  const safeRoundIds = roundIds.length > 0 ? roundIds : ['__none__']
-
-  const [{ data: resultRows }, { data: guestResultRows }] = await Promise.all([
-    supabaseAdmin
-      .from('custom_game_results')
-      .select('round_id, member_id, placement, points')
-      .in('round_id', safeRoundIds),
-    supabaseAdmin
-      .from('custom_game_guest_results')
-      .select('round_id, guest_id, placement, points')
-      .in('round_id', safeRoundIds),
-  ])
-
-  const resultsByRound = new Map<string, { member_id: string; placement: number; points: number }[]>()
-  const guestResultsByRound = new Map<string, { guest_id: string; placement: number; points: number }[]>()
-
-  ;(resultRows ?? []).forEach((r) => {
-    const arr = resultsByRound.get(r.round_id) ?? []
-    arr.push(r)
-    resultsByRound.set(r.round_id, arr)
-  })
-  ;(guestResultRows ?? []).forEach((r) => {
-    const arr = guestResultsByRound.get(r.round_id) ?? []
-    arr.push(r)
-    guestResultsByRound.set(r.round_id, arr)
-  })
-
-  const rounds = (roundRows ?? []).map((r) => ({
-    ...r,
-    results: resultsByRound.get(r.id) ?? [],
-    guest_results: guestResultsByRound.get(r.id) ?? [],
-  }))
-
-  // ── 팀 배정 (TFT 팀전만 조회) ─────────────────────────────────────
-  //   ⚠ TFT 경로는 기존 그대로 유지한다(position 미조회).
-  let teams: { round_number: number; team_index: number; member_id: string | null; guest_id: string | null }[] = []
-  if (game.game_kind === 'tft' && game.game_type === 'team') {
-    const { data: teamRows } = await supabaseAdmin
-      .from('custom_game_teams')
-      .select('round_number, team_index, member_id, guest_id')
-      .eq('custom_game_id', id)
-      .order('round_number')
-      .order('team_index')
-    teams = teamRows ?? []
-  }
 
   // ── 롤 팀/포지션 배정 (롤 전용, position 포함) ──────────────────────
   let lolTeams: {
@@ -197,8 +143,6 @@ export async function GET(_req: Request, ctx: Ctx) {
     confirmed: confirmedParticipants,
     waitlist: waitlistParticipants,
     guests,
-    rounds,
-    teams,
     lol_teams: lolTeams,
     can_manage: canManageGame(game, viewerMemberId, viewer?.isAdmin ?? false),
     my_participation: mine
@@ -249,11 +193,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
     patch.title = parsed.value
   }
 
+  // 레거시 롤체(tft) 행은 종류를 유지한 채 제목·일정·정원만 고칠 수 있어야 한다(새 tft 생성·전환은 거부).
   const kind = parseGameKind(
     body.game_kind !== undefined ? body.game_kind : game.game_kind,
     body.game_kind_label !== undefined ? body.game_kind_label : game.game_kind_label,
     body.steam_app_id !== undefined ? body.steam_app_id : game.steam_app_id,
     body.lol_mode !== undefined ? body.lol_mode : game.lol_mode,
+    { allowLegacyTft: game.game_kind === 'tft' && (body.game_kind === undefined || body.game_kind === 'tft') },
   )
   if (!kind.ok) return NextResponse.json({ error: kind.message }, { status: 400 })
 

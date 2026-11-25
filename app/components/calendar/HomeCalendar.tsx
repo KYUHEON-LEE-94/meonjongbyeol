@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import SteamGamePicker, { type SteamGameSelection } from '@/app/custom-games/_components/SteamGamePicker'
-import { LOL_CAPACITY, LOL_MODES, TFT_TEAM_CAPACITY, type GameKind, type LolMode } from '@/lib/customGames/constants'
+import { LOL_CAPACITY, LOL_MODES, type CreatableGameKind, type LolMode } from '@/lib/customGames/constants'
 import { GAME_KIND_OPTIONS, LOL_MODE_LABELS } from '@/lib/customGames/display'
 import { ALERT, BTN_DANGER, BTN_GHOST, BTN_NEUTRAL, BTN_PRIMARY, CARD, INPUT } from '@/lib/ui/styles'
 
@@ -11,13 +11,12 @@ type EventType = 'birthday' | 'anniversary' | 'event'
 type Recurrence = 'none' | 'yearly'
 type CalendarEventView = { source: 'calendar'; id: string; title: string; description: string | null; event_type: EventType; recurrence: Recurrence; event_date: string | null; event_month: number; event_day: number; is_all_day: boolean; event_time: string | null; member_id: string; member_name: string; can_manage: boolean }
 type CustomGameView = { source: 'custom_game'; id: string; title: string; event_day: number; event_time: string; scheduled_at: string; status: string; game_label: string; href: string; can_manage: false }
-type SeasonEndView = { source: 'season_end'; id: string; title: string; event_day: number; event_time: string | null; href: string; can_manage: false }
-type CalendarItem = CalendarEventView | CustomGameView | SeasonEndView
+type CalendarItem = CalendarEventView | CustomGameView
 type MemberOption = { id: string; member_name: string }
 type Permissions = { isAdmin: boolean; canCreate: boolean; canCreateGame: boolean; viewerMemberId: string | null }
 type CalendarPayload = { events: CalendarItem[]; memberOptions: MemberOption[]; permissions: Permissions; migration_required: boolean }
 type FormState = { title: string; description: string; event_type: EventType; recurrence: Recurrence; event_date: string; event_month: number; event_day: number; is_all_day: boolean; event_time: string; member_id: string }
-type GameForm = { title: string; date: string; time: string; capacity: number; gameKind: GameKind; kindLabel: string; steamGame: SteamGameSelection; lolMode: LolMode; gameType: 'solo' | 'team'; maxRounds: number }
+type GameForm = { title: string; date: string; time: string; capacity: number; gameKind: CreatableGameKind; kindLabel: string; steamGame: SteamGameSelection; lolMode: LolMode }
 type CalendarCell = { year: number; month: number; day: number; isCurrentMonth: boolean }
 
 const LABEL: Record<EventType, string> = { birthday: '생일', anniversary: '기념일', event: '일정' }
@@ -31,12 +30,11 @@ function kstToday() {
 }
 function dateValue(year: number, month: number, day: number) { return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` }
 function emptyForm(year: number, month: number, memberId = ''): FormState { return { title: '', description: '', event_type: 'event', recurrence: 'none', event_date: dateValue(year, month, 1), event_month: month, event_day: 1, is_all_day: true, event_time: '09:00', member_id: memberId } }
-function emptyGameForm(year: number, month: number, day: number): GameForm { return { title: '', date: dateValue(year, month, day), time: '21:00', capacity: 8, gameKind: 'tft', kindLabel: '', steamGame: { label: '', appId: null }, lolMode: 'rift', gameType: 'solo', maxRounds: 5 } }
+function emptyGameForm(year: number, month: number, day: number): GameForm { return { title: '', date: dateValue(year, month, day), time: '21:00', capacity: 8, gameKind: 'lol', kindLabel: '', steamGame: { label: '', appId: null }, lolMode: 'rift' } }
 function isCalendarItem(value: unknown): value is CalendarItem {
   if (!value || typeof value !== 'object') return false
   const row = value as Record<string, unknown>
   if (row.source === 'custom_game') return typeof row.id === 'string' && typeof row.title === 'string' && typeof row.event_day === 'number' && typeof row.href === 'string'
-  if (row.source === 'season_end') return typeof row.id === 'string' && typeof row.title === 'string' && typeof row.event_day === 'number' && typeof row.href === 'string'
   return row.source === 'calendar' && typeof row.id === 'string' && typeof row.title === 'string' && typeof row.event_day === 'number' && typeof row.event_type === 'string' && typeof row.member_id === 'string'
 }
 function isPayload(value: unknown): value is CalendarPayload {
@@ -139,7 +137,7 @@ export default function HomeCalendar() {
   async function saveGame() {
     if (!gameForm.title.trim() || !gameForm.date || !gameForm.time) { setFormError('제목과 일자, 시간을 입력해 주세요.'); return }
     if (gameForm.gameKind === 'etc' && !gameForm.kindLabel.trim()) { setFormError('기타 게임 이름을 입력해 주세요.'); return }
-    const capacity = gameForm.gameKind === 'lol' ? LOL_CAPACITY : gameForm.gameKind === 'tft' && gameForm.gameType === 'team' ? TFT_TEAM_CAPACITY : gameForm.capacity
+    const capacity = gameForm.gameKind === 'lol' ? LOL_CAPACITY : gameForm.capacity
     setSaving(true); setFormError(null)
     try {
       const response = await fetch('/api/custom-games', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
@@ -148,7 +146,6 @@ export default function HomeCalendar() {
         game_kind_label: gameForm.gameKind === 'etc' ? gameForm.kindLabel.trim() : gameForm.gameKind === 'steam' ? gameForm.steamGame.label.trim() || null : null,
         ...(gameForm.gameKind === 'steam' ? { steam_app_id: gameForm.steamGame.appId } : {}),
         ...(gameForm.gameKind === 'lol' ? { lol_mode: gameForm.lolMode } : {}),
-        ...(gameForm.gameKind === 'tft' ? { game_type: gameForm.gameType, max_rounds: gameForm.maxRounds } : {}),
       }) })
       if (!response.ok) throw new Error(await errorMessage(response))
       const result: unknown = await response.json()
@@ -181,7 +178,6 @@ export default function HomeCalendar() {
       <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black ${isToday ? 'bg-brand text-white shadow-sm' : !cell.isCurrentMonth ? 'text-faint' : weekday === 0 ? 'text-danger-ink' : weekday === 6 ? 'text-brand-ink' : 'text-muted'}`}>{cell.day}</span>
       {cell.isCurrentMonth && <div className="mt-1 space-y-1">{events.slice(0, maxPerCell).map((event) => {
         if (event.source === 'custom_game') return <Link key={`game-${event.id}`} href={event.href} onClick={(clickEvent) => clickEvent.stopPropagation()} title={`${event.event_time.slice(0, 5)} · ${event.game_label} · ${event.title}`} className="block w-full truncate rounded border border-amber-400/30 bg-amber-400/10 px-1 py-1 text-left text-[9px] font-bold leading-tight text-warn-ink sm:px-1.5 sm:text-[11px]">⚔ {event.event_time.slice(0, 5)} {event.title}</Link>
-        if (event.source === 'season_end') return <Link key={event.id} href={event.href} onClick={(clickEvent) => clickEvent.stopPropagation()} title={`${event.event_time?.slice(0, 5) ?? ''} · ${event.title}`} className="block w-full truncate rounded border border-rose-400/30 bg-rose-400/10 px-1 py-1 text-left text-[9px] font-bold leading-tight text-rose-700 dark:text-rose-300 sm:px-1.5 sm:text-[11px]">⌛ {event.event_time?.slice(0, 5)} {event.title}</Link>
         const editable = event.can_manage
         return <button key={`event-${event.id}`} type="button" disabled={!editable} onClick={(clickEvent) => { clickEvent.stopPropagation(); if (editable) openEdit(event) }} title={`${LABEL[event.event_type]} · ${event.member_name} · ${event.title}`} className={`block w-full truncate rounded border px-1 py-1 text-left text-[9px] font-bold leading-tight sm:px-1.5 sm:text-[11px] ${CHIP[event.event_type]} disabled:cursor-default`}>{event.event_type === 'event' && !event.is_all_day ? `${event.event_time?.slice(0, 5)} ` : ''}{event.title}</button>
       })}{events.length > maxPerCell && <p className="truncate px-1 text-[9px] font-bold text-subtle">+{events.length - maxPerCell}개</p>}</div>}
@@ -254,12 +250,11 @@ export default function HomeCalendar() {
           </> : <>
             <label className="block text-xs font-bold text-muted">제목<input className={`${INPUT} mt-1`} maxLength={60} value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="예) 금요일 저녁 내전" /></label>
             <div className="grid grid-cols-2 gap-3"><label className="text-xs font-bold text-muted">일자<input type="date" className={`${INPUT} mt-1`} value={gameForm.date} onChange={(e) => setGameForm({ ...gameForm, date: e.target.value })} /></label><label className="text-xs font-bold text-muted">시간 (KST)<input type="time" className={`${INPUT} mt-1`} value={gameForm.time} onChange={(e) => setGameForm({ ...gameForm, time: e.target.value })} /></label></div>
-            <div><p className="mb-2 text-xs font-bold text-muted">게임 종류</p><div className="grid grid-cols-4 gap-2">{GAME_KIND_OPTIONS.map((option) => <button key={option.value} type="button" className={gameForm.gameKind === option.value ? BTN_PRIMARY : BTN_NEUTRAL} onClick={() => setGameForm({ ...gameForm, gameKind: option.value })}>{option.label}</button>)}</div></div>
+            <div><p className="mb-2 text-xs font-bold text-muted">게임 종류</p><div className="grid grid-cols-3 gap-2">{GAME_KIND_OPTIONS.map((option) => <button key={option.value} type="button" className={gameForm.gameKind === option.value ? BTN_PRIMARY : BTN_NEUTRAL} onClick={() => setGameForm({ ...gameForm, gameKind: option.value })}>{option.label}</button>)}</div></div>
             {gameForm.gameKind === 'etc' && <label className="block text-xs font-bold text-muted">게임 이름<input className={`${INPUT} mt-1`} maxLength={30} value={gameForm.kindLabel} onChange={(e) => setGameForm({ ...gameForm, kindLabel: e.target.value })} /></label>}
             {gameForm.gameKind === 'steam' && <SteamGamePicker value={gameForm.steamGame} onChange={(steamGame) => setGameForm({ ...gameForm, steamGame })} disabled={saving} />}
             {gameForm.gameKind === 'lol' && <div><p className="mb-2 text-xs font-bold text-muted">롤 모드</p><div className="grid grid-cols-2 gap-2">{LOL_MODES.map((mode) => <button key={mode} type="button" className={gameForm.lolMode === mode ? BTN_PRIMARY : BTN_NEUTRAL} onClick={() => setGameForm({ ...gameForm, lolMode: mode })}>{LOL_MODE_LABELS[mode]}</button>)}</div><p className="mt-2 text-xs text-subtle">정원 10명 고정</p></div>}
-            {gameForm.gameKind === 'tft' && <><div><p className="mb-2 text-xs font-bold text-muted">게임 방식</p><div className="grid grid-cols-2 gap-2"><button type="button" className={gameForm.gameType === 'solo' ? BTN_PRIMARY : BTN_NEUTRAL} onClick={() => setGameForm({ ...gameForm, gameType: 'solo' })}>개인전</button><button type="button" className={gameForm.gameType === 'team' ? BTN_PRIMARY : BTN_NEUTRAL} onClick={() => setGameForm({ ...gameForm, gameType: 'team' })}>팀전</button></div></div><label className="block text-xs font-bold text-muted">최대 판수<input type="number" min={1} max={20} className={`${INPUT} mt-1`} value={gameForm.maxRounds} onChange={(e) => setGameForm({ ...gameForm, maxRounds: Number(e.target.value) })} /></label></>}
-            {gameForm.gameKind !== 'lol' && !(gameForm.gameKind === 'tft' && gameForm.gameType === 'team') && <label className="block text-xs font-bold text-muted">정원<input type="number" min={2} max={100} className={`${INPUT} mt-1`} value={gameForm.capacity} onChange={(e) => setGameForm({ ...gameForm, capacity: Number(e.target.value) })} /></label>}
+            {gameForm.gameKind !== 'lol' && <label className="block text-xs font-bold text-muted">정원<input type="number" min={2} max={100} className={`${INPUT} mt-1`} value={gameForm.capacity} onChange={(e) => setGameForm({ ...gameForm, capacity: Number(e.target.value) })} /></label>}
             {createdGame && <p className={ALERT.ok}>내전을 만들었습니다. <Link className="font-black underline" href={`/custom-games/${createdGame.id}`}>{createdGame.title} 상세 보기</Link></p>}
           </>}
           {formError && <p className={ALERT.error}>{formError}</p>}

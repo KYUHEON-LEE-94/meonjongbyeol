@@ -80,7 +80,7 @@ export async function GET(req: Request) {
       .schema('public')
       .from('members')
       .select(
-        `id, member_name, riot_game_name, riot_tagline, status, rejected_reason, requested_at, approved_at, created_at, last_synced_at, user_id, discord_id, tft_tier, tft_rank, tft_league_points, tft_doubleup_tier, tft_doubleup_rank, tft_doubleup_league_points, sync_status, last_sync_error, last_sync_finished_at${avatarColumns}`,
+        `id, member_name, riot_game_name, riot_tagline, status, rejected_reason, requested_at, approved_at, created_at, last_synced_at, user_id, discord_id, lol_tier, lol_rank, lol_league_points, lol_synced_at, sync_status, last_sync_error, last_sync_finished_at${avatarColumns}`,
       )
       .order('created_at', { ascending: false })
 
@@ -106,12 +106,10 @@ export async function GET(req: Request) {
     approved_at: m.approved_at,
     created_at: m.created_at,
     last_synced_at: m.last_synced_at,
-    tft_tier: m.tft_tier,
-    tft_rank: m.tft_rank,
-    tft_league_points: m.tft_league_points,
-    tft_doubleup_tier: m.tft_doubleup_tier,
-    tft_doubleup_rank: m.tft_doubleup_rank,
-    tft_doubleup_league_points: m.tft_doubleup_league_points,
+    lol_tier: m.lol_tier,
+    lol_rank: m.lol_rank,
+    lol_league_points: m.lol_league_points,
+    lol_synced_at: m.lol_synced_at,
     sync_status: m.sync_status,
     // last_sync_error 원문은 requireAdmin 라우트라 관리자 한정 노출 → 안전
     last_sync_error: m.last_sync_error,

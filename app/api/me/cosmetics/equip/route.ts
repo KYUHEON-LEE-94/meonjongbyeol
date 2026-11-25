@@ -62,4 +62,4 @@ export async function POST(req: Request) {
   }
   invalidate(); return NextResponse.json({ ok: true })
 }
-function invalidate() { revalidatePath('/'); revalidatePath('/profile'); revalidatePath('/tft'); revalidatePath('/lol') }
+function invalidate() { revalidatePath('/'); revalidatePath('/profile'); revalidatePath('/lol') }

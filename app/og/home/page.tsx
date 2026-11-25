@@ -4,14 +4,14 @@ import Link from 'next/link'
 export const revalidate = 600
 
 export const metadata: Metadata = {
-  title: '롤체 컴퍼니',
-  description: '카카오톡 단톡방 전용 TFT 랭킹 · 내전 · 스팀 라운지',
+  title: '먼종별',
+  description: '종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹',
   openGraph: {
     type: 'website',
-    siteName: '롤체 컴퍼니',
+    siteName: '먼종별',
     locale: 'ko_KR',
-    title: '롤체 컴퍼니',
-    description: '카카오톡 단톡방 전용 TFT 랭킹 · 내전 · 스팀 라운지',
+    title: '먼종별',
+    description: '종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹',
     url: '/',
   },
   twitter: { card: 'summary_large_image' },
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 export default function OgHomePage() {
   return (
     <>
-      <h1>롤체 컴퍼니</h1>
-      <p>카카오톡 단톡방 전용 TFT 랭킹 · 내전 · 스팀 라운지</p>
+      <h1>먼종별</h1>
+      <p>종겜방 멤버 전용 내전 · 스팀 · 롤 랭킹</p>
       <Link href="/login">로그인하고 보기</Link>
     </>
   )

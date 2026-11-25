@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if((ownedResult.count??0)>0||(equippedResult.count??0)>0){
         const {error:deactivateError}=await supabaseAdmin.from('profile_frames').update({is_active:false,is_purchasable:false}).eq('id',id)
         if(deactivateError)return NextResponse.json({ok:false,message:'프레임 비활성화에 실패했습니다.'},{status:500})
-        revalidatePath('/profile');revalidatePath('/tft');return NextResponse.json({ok:true,deactivated:true})
+        revalidatePath('/profile');revalidatePath('/lol');return NextResponse.json({ok:true,deactivated:true})
     }
     const { error: delErr } = await supabaseAdmin.from('profile_frames').delete().eq('id', id)
     if (delErr) return NextResponse.json({ ok: false, message: delErr.message }, { status: 400 })
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     // ✅ 3) 캐시 무효화 (프레임 목록/프로필/랭킹 반영)
     revalidatePath('/profile')
     revalidatePath('/admin/profile-frames')
-    revalidatePath('/tft')
+    revalidatePath('/lol')
 
     return NextResponse.json({ ok: true })
 }

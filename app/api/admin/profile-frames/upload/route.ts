@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // ✅ 캐시 무효화
     revalidatePath('/profile')
     revalidatePath('/admin/profile-frames')
-    revalidatePath('/tft')
+    revalidatePath('/lol')
 
     return NextResponse.json({ ok: true, image_path: objectPath })
 }

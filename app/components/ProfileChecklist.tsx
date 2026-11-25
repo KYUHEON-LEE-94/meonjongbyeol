@@ -27,7 +27,7 @@ function buildItems(s: ProfileStatus): Item[] {
       key: 'member',
       label: '멤버 등록 신청',
       done: s.hasMember,
-      hint: '라이엇 ID를 등록해야 랭킹에 올라가요.',
+      hint: '라이엇 ID를 등록해야 롤 랭킹에 올라가요.',
       href: '/profile',
       cta: '등록하기',
     },

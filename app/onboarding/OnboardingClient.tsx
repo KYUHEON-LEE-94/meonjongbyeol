@@ -42,7 +42,7 @@ export default function OnboardingClient() {
       ) : (
         <>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm font-bold text-ok-ink">
-            라이엇 등록이 접수되었어요. 관리자 승인 후 랭킹에 표시됩니다. 이어서 스팀 계정도 연결해볼까요?
+            라이엇 등록이 접수되었어요. 관리자 승인 후 롤 랭킹에 표시됩니다. 이어서 스팀 계정도 연결해볼까요?
           </div>
           <SteamLinkForm />
           <button type="button" onClick={goToDashboard} className={`${BTN_PRIMARY} w-full`}>

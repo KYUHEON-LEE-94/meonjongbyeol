@@ -1,5 +1,5 @@
 import 'server-only'
-import { fetchPuuid, RiotApiError } from '@/lib/riot/api'
+import { fetchPuuid, hasLolKey, RiotApiError } from '@/lib/riot/api'
 
 export type RiotIdVerification =
   | { status: 'ok'; puuid: string }
@@ -7,13 +7,14 @@ export type RiotIdVerification =
   | { status: 'unverified'; reason: string }
 
 /**
- * 등록 시점에 Riot ID 존재 여부를 확인한다. TFT 키 기준 puuid 를 돌려준다(LoL 키 금지).
+ * 등록 시점에 Riot ID 존재 여부를 확인한다. LoL 키 기준 puuid 를 돌려준다 → `lol_puuid` 로 저장한다.
  *
- * ★ Riot 장애(429·5xx·키 미설정·네트워크)로 확인이 불가하면 등록을 막지 않고 'unverified' 를 돌려준다.
- *   그 경우 puuid 는 null 로 저장되고 동기화가 나중에 해석한다(기존 동작과 동일).
+ * ★ Riot 장애(429·5xx·403·키 미설정·네트워크)로 확인이 불가하면 등록을 막지 않고 'unverified' 를 돌려준다.
+ *   그 경우 lol_puuid 는 null 로 저장되고 동기화가 나중에 lazy 발급한다.
  *   재시도하지 않는다 — 사용자 요청 경로라 지연이 길어지면 안 된다.
  */
 export async function verifyRiotId(gameName: string, tagLine: string): Promise<RiotIdVerification> {
+  if (!hasLolKey()) return { status: 'unverified', reason: 'lol_key_missing' }
   try {
     const puuid = await fetchPuuid(gameName, tagLine)
     if (!puuid) return { status: 'unverified', reason: 'empty_puuid' }

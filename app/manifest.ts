@@ -6,14 +6,15 @@ import type { MetadataRoute } from 'next'
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '롤체 컴퍼니',
-    short_name: '롤체',
-    description: '롤체 컴퍼니 단톡방 멤버 랭킹·내전 서비스',
+    name: '먼종별',
+    short_name: '먼종별',
+    description: '먼가 종겜하는 별난 것들 — 종겜방 멤버 전용 내전·스팀·롤 랭킹 커뮤니티',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#07090f',
+    // 스플래시 배경을 아이콘(흰 배경)과 맞춘다.
+    background_color: '#ffffff',
     theme_color: '#6366f1',
     lang: 'ko',
     icons: [

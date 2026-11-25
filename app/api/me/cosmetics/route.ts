@@ -39,8 +39,8 @@ export async function GET(){
 async function loadPreviewViewer(memberId:string,memberName:string){
  const fallback={name:memberName,avatarUrl:null,tier:null,rank:null,lp:null}
  try{
-  const {data,error}=await supabaseAdmin.from('members').select('discord_avatar_url,tft_tier,tft_rank,tft_league_points').eq('id',memberId).single()
+  const {data,error}=await supabaseAdmin.from('members').select('discord_avatar_url,lol_tier,lol_rank,lol_league_points').eq('id',memberId).single()
   if(error||!data)return fallback
-  return {name:memberName,avatarUrl:data.discord_avatar_url??null,tier:data.tft_tier??null,rank:data.tft_rank??null,lp:data.tft_league_points??null}
+  return {name:memberName,avatarUrl:data.discord_avatar_url??null,tier:data.lol_tier??null,rank:data.lol_rank??null,lp:data.lol_league_points??null}
  }catch{return fallback}
 }

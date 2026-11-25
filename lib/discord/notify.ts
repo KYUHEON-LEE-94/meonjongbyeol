@@ -61,7 +61,7 @@ export async function sendDiscordWebhook(
 
 /** 내전 종류 색상(Discord embed color, 10진수). */
 export const DISCORD_COLOR = {
-  tft: 0xf59e0b, // amber
+  tft: 0xf59e0b, // amber — 레거시 롤체 내전 표시용
   lol: 0x38bdf8, // sky
   steam: 0x22c55e, // emerald
   etc: 0x94a3b8, // slate
@@ -84,8 +84,6 @@ const TIER_KO: Record<string, string> = {
   CHALLENGER: '챌린저',
 }
 
-const GAME_KO = { tft: '롤체', lol: '롤' } as const
-
 export function tierKo(tier: string): string {
   return TIER_KO[tier.toUpperCase()] ?? tier
 }
@@ -99,7 +97,6 @@ export function tierKo(tier: string): string {
  */
 export async function notifyTierPromotion(
   memberName: string,
-  game: 'tft' | 'lol',
   oldTier: string | null | undefined,
   newTier: string | null | undefined,
 ): Promise<void> {
@@ -114,70 +111,11 @@ export async function notifyTierPromotion(
   await sendDiscordWebhook([
     {
       title: `🎉 승급 축하합니다! ${memberName}`,
-      description: `**${tierKo(oldTier)} → ${tierKo(newTier)}** 승급 (${GAME_KO[game]})`,
-      color: DISCORD_COLOR[game],
+      description: `**${tierKo(oldTier)} → ${tierKo(newTier)}** 승급 (롤 솔로랭크)`,
+      color: DISCORD_COLOR.lol,
       timestamp: new Date().toISOString(),
     },
   ])
-}
-
-// ── TOP 5 진입 알림 ───────────────────────────────────────────────────────────
-
-/** 롤체 랭킹 TOP 5 에 새로 진입한 멤버를 축하한다. entrants 가 비면 아무것도 보내지 않는다. */
-export async function notifyTop5Entry(
-  entrants: { name: string; rank: number; rankLabel: string }[],
-): Promise<void> {
-  if (entrants.length === 0) return
-  await sendDiscordWebhook([
-    {
-      title: '🏆 롤체 랭킹 TOP 5 진입!',
-      description: entrants
-        .map((e) => `**${e.rank}위 · ${e.name}** — ${e.rankLabel}`)
-        .join('\n'),
-      color: DISCORD_COLOR.tft,
-      timestamp: new Date().toISOString(),
-    },
-  ])
-}
-
-// ── 시즌 마감 임박 ────────────────────────────────────────────────────────────
-
-/** 활성 시즌 종료가 임박했을 때 1회 알린다. daysLeft 는 남은 일수(정수). */
-export async function notifySeasonEndingSoon(
-  seasonName: string,
-  endAtIso: string,
-  daysLeft: number,
-): Promise<void> {
-  const when = new Intl.DateTimeFormat('ko-KR', {
-    month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul',
-  }).format(new Date(endAtIso))
-  await sendDiscordWebhook([
-    {
-      title: '⏳ 시즌 마감 임박',
-      description: `**${seasonName}** 시즌이 약 **${daysLeft}일 후**(${when}) 마감됩니다.\n마지막 랭크를 챙겨두세요!`,
-      color: DISCORD_COLOR.reminder,
-      timestamp: new Date().toISOString(),
-    },
-  ])
-}
-
-/**
- * 주간 랭크 리포트 발송. 전용 채널 웹훅이 있으면 그쪽으로, 없으면 기본 웹훅으로 보낸다.
- * 멱등 롤백 판단이 필요하므로 성공 여부를 반환한다(오류를 삼키지 않는다).
- * ⚠ 웹훅 URL 은 어떤 로그·반환값에도 싣지 않는다.
- */
-export async function notifyWeeklyRankReport(
-  embed: DiscordEmbed,
-): Promise<'sent' | 'skipped' | 'failed'> {
-  const url = process.env.DISCORD_REPORT_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL
-  if (!url) return 'skipped'
-  try {
-    await sendDiscordWebhook([embed], undefined, { webhookUrl: url, throwOnFailure: true })
-    return 'sent'
-  } catch (e) {
-    console.warn('[discord] 주간 리포트 발송 실패:', e instanceof Error ? e.message : '오류')
-    return 'failed'
-  }
 }
 
 /** 매달 전월 음성 활동 1위 발표 + 포인트 지급 알림. */

@@ -22,7 +22,7 @@ function colorForName(seed: string): string {
  * 멤버가 디스코드 프로필을 바꾸면 저장된 URL(옛 해시)이 404가 되는데(재로그인 전까지 stale),
  * 그때 깨진 이미지 아이콘 대신 **이름 이니셜 컬러 뱃지**로 깔끔하게 폴백한다.
  *   - src 없음/로딩 실패(onError) → 컬러 이니셜 뱃지
- *   - next/image 최적화 경로 사용(롤체·롤·명예의 전당이 동일하게 보이도록. unoptimized 아님)
+ *   - next/image 최적화 경로 사용(화면 간 동일하게 보이도록. unoptimized 아님)
  * 실제 아바타는 본인이 재로그인/방문하면 자동 갱신된다.
  */
 export default function SafeAvatarImage({ src, name, size, className = '' }: Props) {

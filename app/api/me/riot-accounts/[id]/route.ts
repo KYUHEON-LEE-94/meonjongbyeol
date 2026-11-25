@@ -24,7 +24,6 @@ type Ctx = { params: Promise<{ id: string }> }
 
 /** 계정을 건드린 뒤 공개 랭킹 캐시를 다시 계산한다. */
 function revalidatePublic() {
-  revalidatePath('/tft')
   revalidatePath('/lol')
   revalidatePath('/')
   revalidatePath('/profile')
@@ -76,19 +75,21 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   // 다른 사람의 계정으로 바뀌었으므로 옛 puuid·랭크는 전부 무효다.
   // 남겨 두면 다음 동기화 전까지 옛 계정의 티어가 랭킹에 남는다.
-  const clearRiotId = (cleared: Record<string, null>) =>
+  // ★ 순서 중요: cleared(lol_puuid:null 포함)를 펼친 **뒤에** 검증된 새 lol_puuid 를 덮어쓴다.
+  //   riot_puuid 는 레거시 동결 값이라 null 로만 지운다.
+  const clearRiotId = (cleared: Record<string, string | null>) =>
     supabaseAdmin
       .from('riot_accounts')
       .update({
         riot_game_name: parsed.value.riot_game_name,
         riot_tagline: parsed.value.riot_tagline,
-        riot_puuid: resolvedPuuid,
+        riot_puuid: null,
         ...cleared,
       })
       .eq('id', accountId)
       .eq('member_id', memberId)
 
-  let { error } = await clearRiotId(CLEARED_RANK_COLUMNS)
+  let { error } = await clearRiotId({ ...CLEARED_RANK_COLUMNS, lol_puuid: resolvedPuuid })
   // 20260729_lol_puuid.sql 미적용이면 42703. 무효화를 통째로 포기하면 옛 티어가 남으므로 나머지만 지운다.
   if (error && isMissingColumnError(error)) {
     ;({ error } = await clearRiotId(CLEARED_RANK_COLUMNS_LEGACY))

@@ -30,9 +30,8 @@ const GUEST_NAME_MAX = 20
 
 /**
  * ★ 롤 전용 팀/포지션 배정. rejectNonLolGame() 으로만 열린다.
- *   기존 TFT teams/route.ts(4팀×2·라운드) 로직과 완전히 분리된 경로다.
  *   슬롯은 확정 멤버(member_id) 또는 외부인 라벨(guest_name) 중 하나로 채운다.
- *   ★ guest_name 은 자유 텍스트 라벨이며 TFT 게스트(guest_id=puuid)와 무관하다 —
+ *   ★ guest_name 은 자유 텍스트 라벨이며 레거시 게스트(guest_id)와 무관하다 —
  *     롤 INSERT 는 guest_id 를 항상 null 로 둔다.
  */
 
@@ -215,7 +214,7 @@ export async function POST(req: Request, ctx: Ctx) {
       round_number: LOL_ROUND,
       team_index: a.team_index,
       member_id: hasMember ? (a.member_id as string) : null,
-      // ★ 외부인은 guest_name(라벨)에만 저장. guest_id(TFT puuid)는 롤에서 항상 null.
+      // ★ 외부인은 guest_name(라벨)에만 저장. guest_id(레거시 게스트)는 롤에서 항상 null.
       guest_name: hasMember ? null : guestName || null,
       guest_id: null,
       position: isRift ? a.position ?? null : null,

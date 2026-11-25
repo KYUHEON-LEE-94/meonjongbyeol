@@ -4,7 +4,7 @@ import PageHeader from '@/app/components/ui/PageHeader'
 import PointsHistory from './PointsHistory'
 
 export const metadata: Metadata = {
-  title: '포인트 내역 · 롤토 컴퍼니',
+  title: '포인트 내역 · 먼종별',
 }
 
 export default function PointsPage() {

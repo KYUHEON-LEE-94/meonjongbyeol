@@ -14,11 +14,10 @@ import LolTeamAssignPanel, {
   type LolSlot,
   type LolTeamDraft,
 } from '@/app/custom-games/_components/LolTeamAssignPanel'
-import { LOL_POSITIONS, TFT_TEAM_CAPACITY } from '@/lib/customGames/constants'
+import { LOL_POSITIONS } from '@/lib/customGames/constants'
 import { effectiveMemberCapacity } from '@/lib/customGames/waitlist'
 import {
   formatKstSchedule,
-  formatKstShort,
   formatLolRankShort,
   gameKindBadgeClass,
   gameKindLabel,
@@ -45,7 +44,6 @@ type GameDetail = {
   game_kind_label: string | null
   steam_app_id: number | null
   lol_mode: string | null
-  max_rounds: number
   capacity: number
   scheduled_at: string | null
   host_member_id: string | null
@@ -60,7 +58,6 @@ type MemberParticipant = {
   member_name: string
   riot_game_name: string
   riot_tagline: string
-  riot_puuid: string | null
   lol_tier: string | null
   lol_rank: string | null
   lol_league_points: number | null
@@ -73,34 +70,6 @@ type MemberParticipant = {
 type GuestParticipant = {
   id: string
   display_name: string
-  riot_puuid: string
-}
-
-type AnyParticipant = {
-  key: string
-  name: string
-  subLabel: string
-  puuid: string | null
-  isGuest: boolean
-}
-
-type RoundResult = { member_id: string; placement: number; points: number }
-type GuestResult = { guest_id: string; placement: number; points: number }
-
-type Round = {
-  id: string
-  round_number: number
-  match_id: string
-  played_at: string | null
-  results: RoundResult[]
-  guest_results: GuestResult[]
-}
-
-type TeamRow = {
-  round_number: number
-  team_index: number
-  member_id: string | null
-  guest_id: string | null
 }
 
 type LolTeamRow = {
@@ -130,26 +99,6 @@ type MyParticipation = {
   is_host?: boolean
 } | null
 
-// teamDraft: 4팀 × 2슬롯 = [[slot0, slot1], ...]  null = 미배정
-type TeamDraft = [string | null, string | null][]
-
-// ── 상수 ────────────────────────────────────────────────────────────────────
-
-const PLACEMENT_STYLE: Record<number, { bg: string; text: string }> = {
-  1: { bg: 'bg-yellow-500/15 border border-yellow-500/30', text: 'text-yellow-300' },
-  2: { bg: 'bg-slate-400/15 border border-slate-400/30', text: 'text-muted' },
-  3: { bg: 'bg-orange-500/15 border border-orange-500/30', text: 'text-orange-300' },
-}
-
-const TEAM_COLORS = [
-  { bg: 'bg-rose-500/15 border-rose-500/30', text: 'text-danger-ink', dot: 'bg-rose-500', label: '팀 1' },
-  { bg: 'bg-sky-500/15 border-sky-500/30', text: 'text-sky-300', dot: 'bg-sky-500', label: '팀 2' },
-  { bg: 'bg-emerald-500/15 border-emerald-500/30', text: 'text-ok-ink', dot: 'bg-emerald-500', label: '팀 3' },
-  { bg: 'bg-amber-500/15 border-amber-500/30', text: 'text-warn-ink', dot: 'bg-amber-500', label: '팀 4' },
-]
-
-const EMPTY_DRAFT: TeamDraft = [[null, null], [null, null], [null, null], [null, null]]
-
 // ── 헬퍼 컴포넌트 ─────────────────────────────────────────────────────────────
 
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
@@ -157,162 +106,6 @@ function Badge({ className, children }: { className: string; children: React.Rea
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${className}`}>
       {children}
     </span>
-  )
-}
-
-function PlacementCell({ result, teamIndex }: {
-  result: { placement: number; points: number } | undefined
-  teamIndex?: number
-}) {
-  if (!result) return <span className="text-faint text-xs">-</span>
-  const s = PLACEMENT_STYLE[result.placement] ?? {
-    bg: 'bg-surface-2 border border-line',
-    text: 'text-muted',
-  }
-  const tc = teamIndex !== undefined ? TEAM_COLORS[teamIndex - 1] : undefined
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold ${s.bg} ${s.text}`}>
-        {result.placement}등
-      </span>
-      <span className="text-[10px] text-faint font-medium">{result.points}점</span>
-      {tc && (
-        <span className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] font-black border ${tc.bg} ${tc.text}`}>
-          {tc.label}
-        </span>
-      )}
-    </div>
-  )
-}
-
-// ── 팀 배정 섹션 ──────────────────────────────────────────────────────────────
-
-function TeamAssignPanel({
-  allParticipants,
-  draft,
-  onChange,
-  onRandom,
-  onSave,
-  saving,
-  roundNumber,
-  validationError,
-}: {
-  allParticipants: AnyParticipant[]
-  draft: TeamDraft
-  onChange: (next: TeamDraft) => void
-  onRandom: () => void
-  onSave: () => void
-  saving: boolean
-  roundNumber: number
-  validationError: string | null
-}) {
-  const assignedKeys = useMemo(() => new Set(draft.flat().filter(Boolean) as string[]), [draft])
-  const isDraftFull = assignedKeys.size === TFT_TEAM_CAPACITY && draft.every(t => t[0] !== null && t[1] !== null)
-
-  const handleSlotChange = (teamIdx: number, slotIdx: number, newKey: string | null) => {
-    const next: TeamDraft = draft.map(t => [...t] as [string | null, string | null])
-    if (newKey) {
-      next.forEach((team, ti) => {
-        team.forEach((k, si) => {
-          if (k === newKey && !(ti === teamIdx && si === slotIdx)) {
-            next[ti][si] = null
-          }
-        })
-      })
-    }
-    next[teamIdx][slotIdx] = newKey
-    onChange(next)
-  }
-
-  return (
-    <div className="rounded-2xl border p-5 mb-6" style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.18)' }}>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-black text-violet-300">{roundNumber}라운드 팀 배정</h3>
-          <p className="text-xs text-subtle mt-0.5">각 팀에 2명씩 배정하세요</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRandom}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-              text-xs font-bold transition-all duration-150
-              bg-violet-500/10 border border-violet-500/25 text-violet-400
-              hover:bg-violet-500/20 hover:text-violet-300
-              disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            랜덤 배정
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || !isDraftFull}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-              text-xs font-bold transition-all duration-150
-              bg-violet-500/20 border border-violet-500/40 text-violet-300
-              hover:bg-violet-500/30 hover:text-violet-200
-              disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {saving ? <Spinner size={3} /> : null}
-            저장
-          </button>
-        </div>
-      </div>
-
-      {validationError && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-danger-ink text-xs font-medium">
-          {validationError}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {draft.map((team, teamIdx) => {
-          const tc = TEAM_COLORS[teamIdx]
-          return (
-            <div key={teamIdx} className={`rounded-xl border p-3 ${tc.bg}`} style={{ borderColor: 'transparent' }}>
-              <div className={`text-[10px] font-black mb-2 tracking-widest uppercase ${tc.text}`}>
-                {tc.label}
-              </div>
-              {[0, 1].map((slotIdx) => {
-                const currentKey = team[slotIdx]
-                return (
-                  <select
-                    key={slotIdx}
-                    value={currentKey ?? ''}
-                    onChange={(e) => handleSlotChange(teamIdx, slotIdx, e.target.value || null)}
-                    disabled={saving}
-                    className="w-full mb-1.5 last:mb-0 px-2 py-1.5 rounded-lg text-xs font-medium text-fg
-                      bg-black/20 border border-line
-                      focus:outline-none focus:border-violet-500/50
-                      disabled:opacity-50 transition-colors"
-                  >
-                    <option value="">선수 선택</option>
-                    {allParticipants
-                      .filter((p) => p.key === currentKey || !assignedKeys.has(p.key))
-                      .map((p) => (
-                        <option key={p.key} value={p.key}>{p.name}</option>
-                      ))}
-                  </select>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="mt-3 flex items-center gap-1.5">
-        {Array.from({ length: TFT_TEAM_CAPACITY }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-1.5 h-1.5 rounded-full transition-colors ${
-              i < assignedKeys.size ? 'bg-violet-500' : 'bg-surface-2'
-            }`}
-          />
-        ))}
-        <span className="text-[10px] text-faint ml-1">{assignedKeys.size}/{TFT_TEAM_CAPACITY}명 배정</span>
-      </div>
-    </div>
   )
 }
 
@@ -327,8 +120,6 @@ export default function CustomGameDetailPage() {
   const [confirmedList, setConfirmedList] = useState<MemberParticipant[]>([])
   const [waitlist, setWaitlist] = useState<MemberParticipant[]>([])
   const [guests, setGuests] = useState<GuestParticipant[]>([])
-  const [rounds, setRounds] = useState<Round[]>([])
-  const [teams, setTeams] = useState<TeamRow[]>([])
   const [lolTeams, setLolTeams] = useState<LolTeamRow[]>([])
   const [canManage, setCanManage] = useState(false)
   const [myParticipation, setMyParticipation] = useState<MyParticipation>(null)
@@ -337,7 +128,6 @@ export default function CustomGameDetailPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [addingRound, setAddingRound] = useState(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -345,29 +135,16 @@ export default function CustomGameDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  // 게스트 추가 폼 상태
-  const [showGuestForm, setShowGuestForm] = useState(false)
-  const [guestName, setGuestName] = useState('')
-  const [guestRiotId, setGuestRiotId] = useState('')
-  const [addingGuest, setAddingGuest] = useState(false)
-  const [removingGuestId, setRemovingGuestId] = useState<string | null>(null)
-
   // 수정 폼 상태
   const [showEdit, setShowEdit] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editDate, setEditDate] = useState('')
   const [editTime, setEditTime] = useState('')
   const [editCapacity, setEditCapacity] = useState(8)
-  const [editMaxRounds, setEditMaxRounds] = useState(5)
   const [editSteamGame, setEditSteamGame] = useState<SteamGameSelection>({ label: '', appId: null })
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [migrationRequired, setMigrationRequired] = useState(false)
-
-  // 팀 배정 상태
-  const [teamDraft, setTeamDraft] = useState<TeamDraft>(EMPTY_DRAFT)
-  const [savingTeams, setSavingTeams] = useState(false)
-  const [teamSaveError, setTeamSaveError] = useState<string | null>(null)
 
   // 롤 팀 배정 상태
   const [lolDraft, setLolDraft] = useState<LolTeamDraft>(EMPTY_LOL_DRAFT)
@@ -433,8 +210,6 @@ export default function CustomGameDetailPage() {
       setConfirmedList(body.confirmed ?? [])
       setWaitlist(body.waitlist ?? [])
       setGuests(body.guests ?? [])
-      setRounds(body.rounds ?? [])
-      setTeams(body.teams ?? [])
       setLolTeams(body.lol_teams ?? [])
       setCanManage(Boolean(body.can_manage))
       setMyParticipation(body.my_participation ?? null)
@@ -465,27 +240,6 @@ export default function CustomGameDetailPage() {
   // 예정 시각이 지난 recruiting 은 "마감"으로 보고 참가/취소 버튼을 감춘다(로스터 고정).
   const isRecruiting =
     game?.status === 'recruiting' && !isRecruitClosed(game.status, game.scheduled_at)
-
-  // ── 팀 드래프트 초기화 ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!isTeam) return
-    const nextRound = rounds.length + 1
-    const existing = teams.filter((t) => t.round_number === nextRound)
-    if (existing.length > 0) {
-      const next: TeamDraft = [[null, null], [null, null], [null, null], [null, null]]
-      existing.forEach((t) => {
-        const key = t.member_id ?? t.guest_id
-        if (!key) return
-        const teamIdx = t.team_index - 1
-        if (next[teamIdx][0] === null) next[teamIdx][0] = key
-        else next[teamIdx][1] = key
-      })
-      setTeamDraft(next)
-    } else {
-      setTeamDraft(EMPTY_DRAFT)
-    }
-    setTeamSaveError(null)
-  }, [teams, rounds.length, isTeam])
 
   // ── 롤 팀 드래프트 초기화 ──────────────────────────────────────────
   useEffect(() => {
@@ -536,23 +290,6 @@ export default function CustomGameDetailPage() {
   }, [lolTeams, isLol, isRift, confirmedList, waitlist])
 
   // ── 데이터 계산 ───────────────────────────────────────────────────
-
-  const allParticipants: AnyParticipant[] = useMemo(() => [
-    ...confirmedList.map((p) => ({
-      key: p.member_id,
-      name: p.member_name,
-      subLabel: `${p.riot_game_name}#${p.riot_tagline}`,
-      puuid: p.riot_puuid,
-      isGuest: false,
-    })),
-    ...guests.map((g) => ({
-      key: g.id,
-      name: g.display_name,
-      subLabel: '게스트',
-      puuid: g.riot_puuid,
-      isGuest: true,
-    })),
-  ], [confirmedList, guests])
 
   // 롤 팀 배정 멤버 풀 = 확정 명단. 티어·추방용 참가자 id·주최 여부 포함(외부인은 별도 카드).
   const lolParticipants = useMemo(
@@ -615,7 +352,6 @@ export default function CustomGameDetailPage() {
     setEditDate(toKstDateInput(game.scheduled_at))
     setEditTime(toKstTimeInput(game.scheduled_at))
     setEditCapacity(game.capacity)
-    setEditMaxRounds(game.max_rounds)
     setEditSteamGame({ label: game.game_kind_label ?? '', appId: game.steam_app_id })
     setEditError(null)
     setShowEdit(true)
@@ -641,7 +377,6 @@ export default function CustomGameDetailPage() {
           scheduled_date: editDate,
           scheduled_time: editTime,
           capacity: editCapacity,
-          ...(isTft ? { max_rounds: editMaxRounds } : {}),
           ...(game.game_kind === 'steam'
             ? {
                 game_kind_label: editSteamGame.label.trim() || null,
@@ -660,7 +395,7 @@ export default function CustomGameDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('이 내전을 삭제하시겠습니까? 모든 참가 신청과 라운드 기록이 함께 삭제됩니다.')) return
+    if (!confirm('이 내전을 삭제하시겠습니까? 모든 참가 신청이 함께 삭제됩니다.')) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/custom-games/${gameId}`, { method: 'DELETE' })
@@ -674,19 +409,6 @@ export default function CustomGameDetailPage() {
     }
   }
 
-  const handleAddRound = async () => {
-    setAddingRound(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/custom-games/${gameId}/rounds`, { method: 'POST' })
-      const body = await res.json()
-      if (!res.ok) { showMsg('error', body.error ?? '라운드 추가 실패'); return }
-      showMsg('success', `${body.round_number}라운드가 기록되었습니다!`)
-      await loadDetail()
-    } catch { showMsg('error', '라운드 추가 중 오류가 발생했습니다') }
-    finally { setAddingRound(false) }
-  }
-
   const handleEnd = async () => {
     if (!confirm('내전을 종료하시겠습니까?')) return
     setEnding(true)
@@ -698,105 +420,6 @@ export default function CustomGameDetailPage() {
       await loadDetail()
     } catch { showMsg('error', '종료 중 오류가 발생했습니다') }
     finally { setEnding(false) }
-  }
-
-  const handleAddGuest = async () => {
-    if (!guestName.trim()) { showMsg('error', '표시 이름을 입력하세요'); return }
-    const parts = guestRiotId.trim().split('#')
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      showMsg('error', 'Riot ID 형식이 올바르지 않습니다 (예: 닉네임#KR1)')
-      return
-    }
-    setAddingGuest(true)
-    try {
-      const res = await fetch(`/api/custom-games/${gameId}/guests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          display_name: guestName.trim(),
-          riot_game_name: parts[0].trim(),
-          riot_tagline: parts[1].trim(),
-        }),
-      })
-      const body = await res.json()
-      if (!res.ok) { showMsg('error', body.error ?? '게스트 추가 실패'); return }
-      showMsg('success', `${guestName.trim()} 게스트가 추가되었습니다`)
-      setGuestName('')
-      setGuestRiotId('')
-      setShowGuestForm(false)
-      await loadDetail()
-    } catch { showMsg('error', '게스트 추가 중 오류가 발생했습니다') }
-    finally { setAddingGuest(false) }
-  }
-
-  const handleRemoveGuest = async (guestId: string, name: string) => {
-    const hasResults = rounds.some((r) => r.guest_results.some((gr) => gr.guest_id === guestId))
-    const msg = hasResults
-      ? `${name}을(를) 삭제하면 해당 게스트의 라운드 기록도 함께 삭제됩니다. 계속하시겠습니까?`
-      : `${name} 게스트를 삭제하시겠습니까?`
-    if (!confirm(msg)) return
-    setRemovingGuestId(guestId)
-    try {
-      const res = await fetch(`/api/custom-games/${gameId}/guests/${guestId}`, { method: 'DELETE' })
-      const body = await res.json()
-      if (!res.ok) { showMsg('error', body.error ?? '삭제 실패'); return }
-      showMsg('success', '게스트가 삭제되었습니다')
-      await loadDetail()
-    } catch { showMsg('error', '삭제 중 오류가 발생했습니다') }
-    finally { setRemovingGuestId(null) }
-  }
-
-  const handleRandomTeams = async () => {
-    setSavingTeams(true)
-    setTeamSaveError(null)
-    try {
-      const res = await fetch(`/api/custom-games/${gameId}/teams`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round_number: rounds.length + 1, random: true }),
-      })
-      const body = await res.json()
-      if (!res.ok) { setTeamSaveError(body.error ?? '랜덤 배정 실패'); return }
-
-      const next: TeamDraft = [[null, null], [null, null], [null, null], [null, null]]
-      ;(body.assignments as { team_index: number; member_id?: string; guest_id?: string }[]).forEach((a) => {
-        const key = a.member_id ?? a.guest_id
-        if (!key) return
-        const teamIdx = a.team_index - 1
-        if (next[teamIdx][0] === null) next[teamIdx][0] = key
-        else next[teamIdx][1] = key
-      })
-      setTeamDraft(next)
-      await loadDetail()
-    } catch { setTeamSaveError('랜덤 배정 중 오류가 발생했습니다') }
-    finally { setSavingTeams(false) }
-  }
-
-  const handleSaveTeams = async () => {
-    setSavingTeams(true)
-    setTeamSaveError(null)
-    const assignments = teamDraft.flatMap((team, teamIdx) =>
-      team
-        .filter((key): key is string => key !== null)
-        .map((key) => {
-          const p = allParticipants.find((ap) => ap.key === key)
-          return p?.isGuest
-            ? { team_index: teamIdx + 1, guest_id: key }
-            : { team_index: teamIdx + 1, member_id: key }
-        }),
-    )
-    try {
-      const res = await fetch(`/api/custom-games/${gameId}/teams`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round_number: rounds.length + 1, assignments }),
-      })
-      const body = await res.json()
-      if (!res.ok) { setTeamSaveError(body.error ?? '저장 실패'); return }
-      showMsg('success', `${rounds.length + 1}라운드 팀 배정이 저장되었습니다`)
-      await loadDetail()
-    } catch { setTeamSaveError('저장 중 오류가 발생했습니다') }
-    finally { setSavingTeams(false) }
   }
 
   // ── 롤 팀 배정 핸들러 ─────────────────────────────────────────────
@@ -901,46 +524,7 @@ export default function CustomGameDetailPage() {
 
   // ── 파생 값 ───────────────────────────────────────────────────────
 
-  const nextRoundNumber = rounds.length + 1
-  const teamsForNextRound = teams.filter((t) => t.round_number === nextRoundNumber)
-  const teamsAssigned = isTeam ? teamsForNextRound.length === TFT_TEAM_CAPACITY : true
-  const canAddRound = isTft && !isClosed && rounds.length < (game?.max_rounds ?? 5) && teamsAssigned
   const seatsTaken = confirmedList.length + guests.length
-  const canAddGuest = isTft && !isClosed && game !== null && seatsTaken < game.capacity
-
-  const scoreMap = new Map<string, number>()
-  allParticipants.forEach((p) => scoreMap.set(p.key, 0))
-  rounds.forEach((r) => {
-    r.results.forEach((res) => {
-      scoreMap.set(res.member_id, (scoreMap.get(res.member_id) ?? 0) + res.points)
-    })
-    r.guest_results.forEach((res) => {
-      scoreMap.set(res.guest_id, (scoreMap.get(res.guest_id) ?? 0) + res.points)
-    })
-  })
-
-  const sortedParticipants = [...allParticipants].sort(
-    (a, b) => (scoreMap.get(b.key) ?? 0) - (scoreMap.get(a.key) ?? 0),
-  )
-
-  const resultMap = new Map<string, Map<string, { placement: number; points: number }>>()
-  rounds.forEach((r) => {
-    const inner = new Map<string, { placement: number; points: number }>()
-    r.results.forEach((res) => inner.set(res.member_id, res))
-    r.guest_results.forEach((res) => inner.set(res.guest_id, res))
-    resultMap.set(r.id, inner)
-  })
-
-  const teamMapByRound = useMemo(() => {
-    const map = new Map<number, Map<string, number>>()
-    teams.forEach((t) => {
-      if (!map.has(t.round_number)) map.set(t.round_number, new Map())
-      const key = t.member_id ?? t.guest_id
-      if (!key) return
-      map.get(t.round_number)!.set(key, t.team_index)
-    })
-    return map
-  }, [teams])
 
   // 정원 하향 시 확정자 중 몇 명이 대기자로 밀리는지 (B-R12)
   const demotedCount = game
@@ -973,11 +557,6 @@ export default function CustomGameDetailPage() {
       {isLol && (
         <span className={`ml-auto shrink-0 text-[11px] font-black ${lolTierClass(p.lol_tier)}`}>
           {formatLolRankShort(p.lol_tier, p.lol_rank, p.lol_league_points)}
-        </span>
-      )}
-      {isTft && tone === 'confirmed' && !p.riot_puuid && (
-        <span className="text-[10px] text-danger-ink bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded font-bold">
-          PUUID 없음
         </span>
       )}
       {canManage && !isClosed && !p.is_host && (
@@ -1066,13 +645,6 @@ export default function CustomGameDetailPage() {
                   <Badge className={gameKindBadgeClass(game.game_kind)}>
                     {gameKindLabel(game.game_kind, game.game_kind_label)}
                   </Badge>
-                  {isTft && (
-                    <Badge className={isTeam
-                      ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
-                      : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}>
-                      {isTeam ? '2인 팀전' : '개인전'}
-                    </Badge>
-                  )}
                   {isLol && game.lol_mode && (
                     <Badge className="bg-sky-500/10 border-sky-500/20 text-sky-400">
                       {lolModeLabel(game.lol_mode)}
@@ -1094,7 +666,6 @@ export default function CustomGameDetailPage() {
                   {seatsTaken}/{game.capacity}명
                   {guests.length > 0 && ` (게스트 ${guests.length}명 포함)`}
                   {waitlist.length > 0 && ` · 대기 ${waitlist.length}명`}
-                  {isTft && ` · 최대 ${game.max_rounds}판 · ${rounds.length}판 완료`}
                 </p>
                 {/* 삭제는 종료된 내전에도 노출한다 — 나머지 버튼은 각자 !isClosed 로 기존 동작을 유지한다. */}
                 {(!isClosed || canManage) && (
@@ -1142,26 +713,11 @@ export default function CustomGameDetailPage() {
                         수정
                       </button>
                     )}
-                    {canManage && isTft && !isClosed && (
-                      <button
-                        type="button"
-                        onClick={handleAddRound}
-                        disabled={addingRound || ending || !canAddRound}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                          text-sm font-bold transition-all duration-200
-                          bg-indigo-500/10 border border-indigo-500/30 text-brand-ink
-                          hover:bg-indigo-500/20 hover:text-brand-ink
-                          disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={isTeam && !teamsAssigned ? '팀 배정을 먼저 저장하세요' : undefined}
-                      >
-                        {addingRound ? <><Spinner size={4} /> 탐색 중...</> : (isTeam && !teamsAssigned ? '팀 배정 필요' : '라운드 추가')}
-                      </button>
-                    )}
                     {canManage && !isClosed && (
                       <button
                         type="button"
                         onClick={handleEnd}
-                        disabled={addingRound || ending || deleting}
+                        disabled={ending || deleting}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
                           bg-red-500/10 border border-red-500/20 text-danger-ink
@@ -1175,7 +731,7 @@ export default function CustomGameDetailPage() {
                       <button
                         type="button"
                         onClick={handleDelete}
-                        disabled={deleting || addingRound || ending}
+                        disabled={deleting || ending}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                           text-sm font-bold transition-all duration-200
                           bg-red-500/20 border border-red-500/40 text-danger-ink
@@ -1190,16 +746,6 @@ export default function CustomGameDetailPage() {
               </div>
 
               {!isClosed && <PushNotifyToggle />}
-
-              {addingRound && (
-                <div className="mb-6 flex items-center gap-3 px-4 py-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-brand-ink text-sm">
-                  <Spinner size={4} />
-                  <div>
-                    <p className="font-bold">Riot API에서 게임 정보를 가져오는 중입니다</p>
-                    <p className="text-brand-ink/70 text-xs mt-0.5">참가자 전원이 함께한 최근 게임을 탐색합니다. 10~20초 정도 걸릴 수 있습니다.</p>
-                  </div>
-                </div>
-              )}
 
               {error && (
                 <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-danger-ink text-sm font-medium">
@@ -1229,18 +775,6 @@ export default function CustomGameDetailPage() {
                           hover:bg-brand/20"
                       >
                         멤버 추가
-                      </button>
-                    )}
-                    {isTft && !isClosed && canManage && canAddGuest && !showGuestForm && (
-                      <button
-                        type="button"
-                        onClick={() => setShowGuestForm(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                          text-xs font-bold transition-all duration-150
-                          bg-amber-500/10 border border-amber-500/20 text-warn-ink
-                          hover:bg-amber-500/20 hover:text-warn-ink"
-                      >
-                        게스트 추가
                       </button>
                     )}
                   </div>
@@ -1353,66 +887,6 @@ export default function CustomGameDetailPage() {
                   </div>
                 )}
 
-                {isTft && showGuestForm && (
-                  <div
-                    className="mb-4 p-4 rounded-xl border"
-                    style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.15)' }}
-                  >
-                    <p className="text-xs font-black text-warn-ink tracking-widest uppercase mb-3">게스트 추가</p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        value={guestName}
-                        onChange={(e) => setGuestName(e.target.value)}
-                        placeholder="표시 이름 (예: 홍길동 부계)"
-                        disabled={addingGuest}
-                        className="flex-1 px-3 py-2 rounded-lg text-sm text-fg
-                          bg-surface-2 border border-line
-                          placeholder:text-faint
-                          focus:outline-none focus:border-amber-500/40
-                          disabled:opacity-50 transition-colors"
-                      />
-                      <input
-                        type="text"
-                        value={guestRiotId}
-                        onChange={(e) => setGuestRiotId(e.target.value)}
-                        placeholder="Riot ID (닉네임#태그)"
-                        disabled={addingGuest}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddGuest() }}
-                        className="flex-1 px-3 py-2 rounded-lg text-sm text-fg
-                          bg-surface-2 border border-line
-                          placeholder:text-faint
-                          focus:outline-none focus:border-amber-500/40
-                          disabled:opacity-50 transition-colors"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleAddGuest}
-                          disabled={addingGuest || !guestName.trim() || !guestRiotId.trim()}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-                            text-sm font-bold transition-all duration-150
-                            bg-amber-500/15 border border-amber-500/25 text-warn-ink
-                            hover:bg-amber-500/25 hover:text-warn-ink
-                            disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {addingGuest ? <Spinner size={4} /> : '추가'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setShowGuestForm(false); setGuestName(''); setGuestRiotId('') }}
-                          disabled={addingGuest}
-                          className="px-3 py-2 rounded-lg text-sm font-bold
-                            text-subtle hover:text-muted hover:bg-surface-2
-                            disabled:opacity-40 transition-colors"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-wrap gap-2">
                   {confirmedList.length === 0 && guests.length === 0 && (
                     <p className="text-sm text-faint">아직 참가자가 없습니다</p>
@@ -1423,39 +897,17 @@ export default function CustomGameDetailPage() {
                     <p className="text-xs text-subtle">명단은 아래 팀 배정에서 카드로 확인·배치할 수 있어요.</p>
                   )}
 
-                  {isTft && guests.map((g) => (
+                  {guests.map((g) => (
                     <div
                       key={g.id}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl border"
                       style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.15)' }}
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-bold text-fg leading-tight">{g.display_name}</p>
-                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-warn-ink">
-                            게스트
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-faint font-mono">{g.riot_puuid.slice(0, 16)}…</p>
-                      </div>
-                      {canManage && !isClosed && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGuest(g.id, g.display_name)}
-                          disabled={removingGuestId === g.id}
-                          className="ml-1 w-5 h-5 flex items-center justify-center rounded-md
-                            text-faint hover:text-danger-ink hover:bg-red-500/10
-                            disabled:opacity-40 transition-colors"
-                          title="게스트 삭제"
-                        >
-                          {removingGuestId === g.id ? <Spinner size={3} /> : (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
-                              <path d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
+                      <p className="text-sm font-bold text-fg leading-tight">{g.display_name}</p>
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-warn-ink">
+                        게스트
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1476,169 +928,14 @@ export default function CustomGameDetailPage() {
                 </div>
               )}
 
-              {/* ── 아래는 TFT 내전에서만 렌더한다 (라운드·팀·결과) ───────── */}
+              {/* 레거시 롤체(tft) 내전: 생성·기록 기능은 종료됐고 모집 정보만 표시한다. */}
               {isTft && (
-                <>
-                  {isTeam && canManage && !isClosed && rounds.length < game.max_rounds && (
-                    <TeamAssignPanel
-                      allParticipants={allParticipants}
-                      draft={teamDraft}
-                      onChange={setTeamDraft}
-                      onRandom={handleRandomTeams}
-                      onSave={handleSaveTeams}
-                      saving={savingTeams}
-                      roundNumber={nextRoundNumber}
-                      validationError={teamSaveError}
-                    />
-                  )}
-
-                  {rounds.length === 0 && (
-                    <div
-                      className="flex flex-col items-center justify-center py-16 border border-dashed rounded-2xl mb-6"
-                      style={{ borderColor: 'var(--color-line)' }}
-                    >
-                      <p className="text-muted font-bold mb-1">아직 기록된 라운드가 없습니다</p>
-                      <p className="text-faint text-sm text-center">
-                        {isTeam ? '팀을 배정하고 저장한 뒤 [라운드 추가] 버튼을 눌러 결과를 기록하세요' : 'TFT 게임 플레이 후 [라운드 추가] 버튼을 눌러 결과를 기록하세요'}
-                      </p>
-                    </div>
-                  )}
-
-                  {rounds.length > 0 && (
-                    <div className="rounded-2xl border overflow-hidden mb-8" style={{ borderColor: 'var(--color-line)' }}>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full border-collapse">
-                          <thead>
-                            <tr style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-line)' }}>
-                              <th className="px-4 py-3.5 text-left text-[10px] font-black text-subtle tracking-widest uppercase w-8">순위</th>
-                              <th className="px-4 py-3.5 text-left text-[10px] font-black text-subtle tracking-widest uppercase">참가자</th>
-                              {rounds.map((r) => (
-                                <th key={r.id} className="px-4 py-3.5 text-center text-[10px] font-black text-subtle tracking-widest uppercase min-w-[90px]">
-                                  {r.round_number}판
-                                </th>
-                              ))}
-                              {Array.from({ length: Math.max(0, game.max_rounds - rounds.length) }).map((_, i) => (
-                                <th key={`empty-${i}`} className="px-4 py-3.5 text-center text-[10px] font-black text-faint tracking-widest uppercase min-w-[90px]">
-                                  {rounds.length + i + 1}판
-                                </th>
-                              ))}
-                              <th className="px-4 py-3.5 text-center text-[10px] font-black text-brand-ink tracking-widest uppercase min-w-[72px]">총점</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortedParticipants.map((p, idx) => {
-                              const totalPoints = scoreMap.get(p.key) ?? 0
-                              const rank = idx + 1
-                              return (
-                                <tr
-                                  key={p.key}
-                                  style={{
-                                    background: idx % 2 === 0 ? 'transparent' : 'var(--color-surface)',
-                                    borderBottom: '1px solid var(--color-line)',
-                                  }}
-                                >
-                                  <td className="px-4 py-3.5 text-center">
-                                    <span className={`text-sm font-black ${
-                                      rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-muted' : rank === 3 ? 'text-orange-400' : 'text-faint'
-                                    }`}>{rank}</span>
-                                  </td>
-                                  <td className="px-4 py-3.5">
-                                    <div className="flex items-center gap-2">
-                                      <div>
-                                        <p className="text-sm font-bold text-fg leading-tight">{p.name}</p>
-                                        <p className="text-xs text-faint">{p.subLabel}</p>
-                                      </div>
-                                      {p.isGuest && (
-                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-warn-ink">
-                                          게스트
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  {rounds.map((r) => {
-                                    const teamIdx = isTeam ? teamMapByRound.get(r.round_number)?.get(p.key) : undefined
-                                    return (
-                                      <td key={r.id} className="px-4 py-3.5 text-center">
-                                        <PlacementCell result={resultMap.get(r.id)?.get(p.key)} teamIndex={teamIdx} />
-                                      </td>
-                                    )
-                                  })}
-                                  {Array.from({ length: Math.max(0, game.max_rounds - rounds.length) }).map((_, i) => (
-                                    <td key={`empty-${i}`} className="px-4 py-3.5 text-center">
-                                      <span className="text-faint text-xs">-</span>
-                                    </td>
-                                  ))}
-                                  <td className="px-4 py-3.5 text-center">
-                                    <span className={`text-base font-black ${
-                                      rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-muted' : rank === 3 ? 'text-orange-400' : 'text-fg'
-                                    }`}>{totalPoints}</span>
-                                    <span className="text-faint text-xs ml-0.5">점</span>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--color-line)', background: 'var(--color-surface)' }}>
-                        <span className="text-xs text-faint font-medium">
-                          {rounds.length}/{game.max_rounds}판 완료 · {isTeam ? '팀 합산점수 (1등=8점 기준)' : '1등=8점, 8등=1점'}
-                        </span>
-                        {isClosed && game.ended_at && (
-                          <span className="text-xs text-subtle">종료: {formatKstShort(game.ended_at)}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {isTeam && rounds.length > 0 && (
-                    <div className="mb-8">
-                      <h2 className="text-xs font-black text-subtle tracking-widest uppercase mb-3">라운드별 팀 구성</h2>
-                      <div className="flex flex-col gap-3">
-                        {rounds.map((r) => {
-                          const roundTeamMap = teamMapByRound.get(r.round_number)
-                          if (!roundTeamMap) return null
-                          const teamGroups = new Map<number, AnyParticipant[]>()
-                          allParticipants.forEach((p) => {
-                            const ti = roundTeamMap.get(p.key)
-                            if (ti !== undefined) {
-                              const arr = teamGroups.get(ti) ?? []
-                              arr.push(p)
-                              teamGroups.set(ti, arr)
-                            }
-                          })
-                          return (
-                            <div key={r.id} className="rounded-xl border p-3" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-line)' }}>
-                              <div className="text-[10px] font-black text-subtle uppercase tracking-widest mb-2">{r.round_number}라운드</div>
-                              <div className="flex flex-wrap gap-2">
-                                {[1, 2, 3, 4].map((ti) => {
-                                  const teamMembers = teamGroups.get(ti) ?? []
-                                  const tc = TEAM_COLORS[ti - 1]
-                                  return (
-                                    <div
-                                      key={ti}
-                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${tc.bg}`}
-                                      style={{ borderColor: 'transparent' }}
-                                    >
-                                      <div className={`w-1.5 h-1.5 rounded-full ${tc.dot}`} />
-                                      <span className={`text-xs font-black ${tc.text}`}>{tc.label}</span>
-                                      <span className="text-xs text-muted">
-                                        {teamMembers.map((m) => m.name).join(' + ')}
-                                      </span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </>
+                <p className="mb-8 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-subtle">
+                  롤체 내전(종료된 기능) — 기록 기능은 더 이상 제공되지 않습니다.
+                </p>
               )}
 
-              {/* ── 롤 내전: 팀/포지션 배정 (전용 경로, TFT 로직과 분리) ───── */}
+              {/* ── 롤 내전: 팀/포지션 배정 ───── */}
               {isLol && (
                 <>
                   {canManage && !isClosed ? (
@@ -1809,36 +1106,13 @@ export default function CustomGameDetailPage() {
                   focus:outline-none focus:border-indigo-500/50
                   disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              {isTeam && <p className="mt-1.5 text-xs text-faint">팀전은 8명 고정입니다</p>}
+              {isTeam && <p className="mt-1.5 text-xs text-faint">레거시 롤체 팀전은 8명 고정입니다</p>}
               {demotedCount > 0 && (
                 <p className="mt-1.5 text-xs text-orange-400">
                   정원을 줄이면 확정자 {demotedCount}명이 대기자로 이동합니다
                 </p>
               )}
             </div>
-
-            {isTft && (
-              <div>
-                <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">최대 판수</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setEditMaxRounds(n)}
-                      disabled={savingEdit}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 ${
-                        editMaxRounds === n
-                          ? 'bg-indigo-500/25 border border-indigo-500/50 text-brand-ink'
-                          : 'bg-surface border border-line text-subtle hover:text-muted hover:bg-surface-2'
-                      } disabled:opacity-50`}
-                    >
-                      {n}판
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {editError && (
               <div role="alert" className={ALERT.error}>

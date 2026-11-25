@@ -1,55 +1,62 @@
 /**
- * PWA 아이콘 생성 스크립트 (일회성).
+ * PWA · 파비콘 아이콘 생성 스크립트 (일회성).
  *
  *   실행:  node scripts/gen-pwa-icons.mjs      (= npm run gen:pwa-icons)
  *
- * `public/images/logo2.png`(1536x1024, 비정사각)에서 **엠블럼 영역만 정사각으로 크롭**해
- * 아이콘을 만든다. 전체를 contain 하면 워드마크까지 들어가 192px 에서 로고가 알아볼 수 없이 작아진다.
+ * 원본: `public/images/brand/meonjongbyeol.png` — 먼종별 컨셉 이미지
+ * ("먼가 종겜하는 별난 것들" 문구 + 캐릭터, 흰 배경, 511x509).
+ *
+ * - 홈 화면 아이콘(192/512/maskable)·apple-icon 은 **전체 컨셉 이미지**를 쓴다.
+ * - 작은 크기(파비콘 app/icon.png, 알림 배지 72px)는 문구가 뭉개지므로
+ *   가운데 캐릭터 얼굴만 정사각으로 크롭해 쓴다.
+ *
  * 결과 PNG 는 커밋하므로 빌드·배포에는 이 스크립트도 sharp 도 필요 없다
  * (sharp 는 next 의 전이 의존이라 node_modules 에 이미 존재한다 — dependency 추가 0).
- *
- * 로고 원본(public/images/logo.png, logo2.png)은 절대 덮어쓰지 않는다.
+ * 원본 이미지는 절대 덮어쓰지 않는다.
  */
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const SOURCE = path.join(ROOT, 'public', 'images', 'logo2.png')
-const OUT_DIR = path.join(ROOT, 'public', 'icons')
+const SOURCE = path.join(ROOT, 'public', 'images', 'brand', 'meonjongbyeol.png')
 
-/** --color-canvas (다크 테마 배경). manifest 의 background_color 와 맞춘다. */
-const BACKGROUND = { r: 0x07, g: 0x09, b: 0x0f, alpha: 1 }
+/** 컨셉 이미지 배경과 같은 흰색. manifest 의 background_color 와 맞춘다. */
+const BACKGROUND = { r: 0xff, g: 0xff, b: 0xff, alpha: 1 }
 
-/** logo2.png 안에서 원형 엠블럼이 차지하는 정사각 영역(실측). */
-const EMBLEM = { left: 180, top: 265, width: 450, height: 450 }
+/** 컨셉 이미지 가운데 캐릭터 얼굴 영역(실측). 작은 아이콘용. */
+const FACE = { left: 190, top: 250, width: 130, height: 130 }
 
-/** maskable 은 원형 크롭을 견뎌야 하므로 로고를 안전영역(약 80%)에 가둔다. */
+/** inset: 캔버스 대비 이미지 비율. maskable 은 원형 크롭을 견디도록 안전영역(약 80%)에 가둔다. */
 const TARGETS = [
-  { file: 'icon-192.png', size: 192, inset: 1 },
-  { file: 'icon-512.png', size: 512, inset: 1 },
-  { file: 'icon-maskable-512.png', size: 512, inset: 0.8 },
-  { file: 'badge-72.png', size: 72, inset: 0.85 },
+  { out: ['public', 'icons', 'icon-192.png'], size: 192, inset: 1, crop: null },
+  { out: ['public', 'icons', 'icon-512.png'], size: 512, inset: 1, crop: null },
+  { out: ['public', 'icons', 'icon-maskable-512.png'], size: 512, inset: 0.8, crop: null },
+  { out: ['public', 'icons', 'badge-72.png'], size: 72, inset: 1, crop: FACE },
+  { out: ['app', 'icon.png'], size: 64, inset: 1, crop: FACE },
+  { out: ['app', 'apple-icon.png'], size: 180, inset: 1, crop: null },
 ]
 
 async function main() {
-  await mkdir(OUT_DIR, { recursive: true })
+  await mkdir(path.join(ROOT, 'public', 'icons'), { recursive: true })
 
-  for (const { file, size, inset } of TARGETS) {
+  for (const { out, size, inset, crop } of TARGETS) {
     const inner = Math.round(size * inset)
-    const logo = await sharp(SOURCE)
-      .extract(EMBLEM)
-      .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    let img = sharp(SOURCE)
+    if (crop) img = img.extract(crop)
+    const resized = await img
+      .resize(inner, inner, { fit: 'contain', background: BACKGROUND })
       .png()
       .toBuffer()
 
     const offset = Math.round((size - inner) / 2)
+    const file = path.join(ROOT, ...out)
     await sharp({ create: { width: size, height: size, channels: 4, background: BACKGROUND } })
-      .composite([{ input: logo, top: offset, left: offset }])
+      .composite([{ input: resized, top: offset, left: offset }])
       .png()
-      .toFile(path.join(OUT_DIR, file))
+      .toFile(file)
 
-    console.log(`generated public/icons/${file} (${size}x${size})`)
+    console.log(`generated ${out.join('/')} (${size}x${size})`)
   }
 }
 

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { GAME_KINDS, type GameKind, type GameStatus, type LolMode, type LolPosition } from './constants'
+import { CREATABLE_GAME_KINDS, type CreatableGameKind, type GameKind, type GameStatus, type LolMode, type LolPosition } from './constants'
 
 /**
  * 클라이언트 컴포넌트에서도 쓰는 표시 전용 헬퍼.
@@ -27,6 +27,7 @@ export function openNativePicker(e: MouseEvent<HTMLInputElement>) {
   }
 }
 
+/** 'tft'는 레거시 롤체 내전 행 표시용으로만 남는다. */
 export const GAME_KIND_LABELS: Record<GameKind, string> = {
   tft: '롤체',
   lol: '롤',
@@ -34,7 +35,8 @@ export const GAME_KIND_LABELS: Record<GameKind, string> = {
   etc: '기타',
 }
 
-export const GAME_KIND_OPTIONS: { value: GameKind; label: string }[] = GAME_KINDS.map((kind) => ({
+/** 생성 폼 선택지. 롤체(tft)는 더 이상 만들 수 없어 제외한다. */
+export const GAME_KIND_OPTIONS: { value: CreatableGameKind; label: string }[] = CREATABLE_GAME_KINDS.map((kind) => ({
   value: kind,
   label: GAME_KIND_LABELS[kind],
 }))

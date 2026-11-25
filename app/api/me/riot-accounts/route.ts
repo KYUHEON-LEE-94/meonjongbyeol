@@ -13,6 +13,7 @@ import {
   riotAccountsMigrationResponse,
 } from '@/lib/members/primaryAccount'
 import { RIOT_ID_NOT_FOUND_MESSAGE, verifyRiotId } from '@/lib/riot/verifyRiotId'
+import { isMissingColumnError } from '@/lib/db/pgErrors'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,9 +28,10 @@ function toPublicAccount(a: {
   riot_game_name: string
   riot_tagline: string
   riot_puuid: string | null
-  tft_tier: string | null
-  tft_rank: string | null
-  tft_league_points: number | null
+  lol_puuid: string | null
+  lol_tier: string | null
+  lol_rank: string | null
+  lol_league_points: number | null
   last_synced_at: string | null
 }) {
   return {
@@ -38,10 +40,11 @@ function toPublicAccount(a: {
     is_primary: a.is_primary,
     riot_game_name: a.riot_game_name,
     riot_tagline: a.riot_tagline,
-    synced: !!a.riot_puuid,
-    tft_tier: a.tft_tier,
-    tft_rank: a.tft_rank,
-    tft_league_points: a.tft_league_points,
+    // puuid 자체는 응답하지 않는다. riot_puuid 는 레거시 계정의 폴백 판정용.
+    synced: !!(a.lol_puuid ?? a.riot_puuid),
+    lol_tier: a.lol_tier,
+    lol_rank: a.lol_rank,
+    lol_league_points: a.lol_league_points,
     last_synced_at: a.last_synced_at,
   }
 }
@@ -123,20 +126,24 @@ export async function POST(req: Request) {
 
   const isFirst = listed.accounts.length === 0
 
-  const { data: created, error } = await supabaseAdmin
-    .from('riot_accounts')
-    .insert({
-      member_id: me.member.id,
-      account_no: slot,
-      // 계정이 하나도 없던 경우에만 자동으로 대표가 된다. 부계정 추가는 대표를 바꾸지 않는다.
-      is_primary: isFirst,
-      riot_game_name: parsed.value.riot_game_name,
-      riot_tagline: parsed.value.riot_tagline,
-      // Riot 장애로 확인 불가면 null — 동기화가 나중에 해석한다.
-      riot_puuid: verification.status === 'ok' ? verification.puuid : null,
-    })
-    .select('id')
-    .single()
+  const baseRow = {
+    member_id: me.member.id,
+    account_no: slot,
+    // 계정이 하나도 없던 경우에만 자동으로 대표가 된다. 부계정 추가는 대표를 바꾸지 않는다.
+    is_primary: isFirst,
+    riot_game_name: parsed.value.riot_game_name,
+    riot_tagline: parsed.value.riot_tagline,
+  }
+  // LoL 키 기준 puuid 는 lol_puuid 에만 저장한다(riot_puuid 는 레거시 동결). 확인 불가면 null — 동기화가 lazy 발급한다.
+  const lolPuuid = verification.status === 'ok' ? verification.puuid : null
+  const insertAccount = (row: Record<string, string | number | boolean | null>) =>
+    supabaseAdmin.from('riot_accounts').insert(row).select('id').single()
+
+  let { data: created, error } = await insertAccount({ ...baseRow, lol_puuid: lolPuuid })
+  // 20260729_lol_puuid.sql 미적용이면 컬럼 부재(42703/PGRST204). lol_puuid 없이 1회 재시도한다.
+  if (error && isMissingColumnError(error)) {
+    ;({ data: created, error } = await insertAccount(baseRow))
+  }
 
   if (error || !created) {
     // 슬롯 경합·중복 Riot ID 모두 DB 유니크가 유일한 원자적 방어선이다.
@@ -152,7 +159,7 @@ export async function POST(req: Request) {
   // 부계정 추가는 status를 건드리지 않는다(공개 노출값이 바뀌지 않으므로 심사 대상이 아니다).
   if (isFirst) {
     await mirrorPrimaryToMember(me.member.id)
-    revalidatePath('/tft')
+    revalidatePath('/lol')
     revalidatePath('/')
   }
   revalidatePath('/profile')
