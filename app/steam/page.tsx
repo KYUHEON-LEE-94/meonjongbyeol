@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import SteamLinkForm from '@/app/steam/SteamLinkForm'
-import SteamThumb from '@/app/steam/SteamThumb'
 import RecentPlayedList from '@/app/steam/RecentPlayedList'
+import SharedGamesGrid, { type SharedGameCard } from '@/app/steam/SharedGamesGrid'
 import SharedWithMe from '@/app/steam/SharedWithMe'
 import SteamPresence from '@/app/steam/SteamPresence'
 import { resolveAvatarUrl, withAvatarColumn } from '@/lib/members/avatar'
@@ -125,28 +125,26 @@ async function loadSteamData(): Promise<LoadResult> {
   return { ok: true, members, owned }
 }
 
-type SharedGame = {
-  appid: number
-  name: string
-  isMultiplayer: boolean | null
-  headerImageUrl: string | null
-  ownerNames: string[]
-}
-
-function buildSharedGames(members: SteamMemberRow[], owned: OwnedRow[]): SharedGame[] {
-  const nameById = new Map(members.map((m) => [m.id, m.member_name]))
-  const byApp = new Map<number, SharedGame>()
+function buildSharedGames(members: SteamMemberRow[], owned: OwnedRow[]): SharedGameCard[] {
+  // 아바타는 이미 조회한 members 행에서만 계산한다(추가 쿼리 없음). 스팀 맥락이라 steam_avatar_url 우선.
+  const ownerById = new Map(
+    members.map((m) => [
+      m.id,
+      { id: m.id, name: m.member_name, avatarUrl: m.steam_avatar_url ?? resolveAvatarUrl(m) },
+    ]),
+  )
+  const byApp = new Map<number, SharedGameCard>()
 
   for (const row of owned) {
     // 싱글플레이로 확정된 게임만 제외한다. 미확인(null)은 남겨 "분류 미확인" 으로 표기.
     if (row.steam_apps?.is_multiplayer === false) continue
 
-    const memberName = nameById.get(row.member_id)
-    if (!memberName) continue
+    const owner = ownerById.get(row.member_id)
+    if (!owner) continue
 
     const existing = byApp.get(row.appid)
     if (existing) {
-      existing.ownerNames.push(memberName)
+      existing.owners.push(owner)
       continue
     }
     byApp.set(row.appid, {
@@ -154,13 +152,13 @@ function buildSharedGames(members: SteamMemberRow[], owned: OwnedRow[]): SharedG
       name: row.steam_apps?.name ?? `앱 ${row.appid}`,
       isMultiplayer: row.steam_apps?.is_multiplayer ?? null,
       headerImageUrl: row.steam_apps?.header_image_url ?? null,
-      ownerNames: [memberName],
+      owners: [owner],
     })
   }
 
   return [...byApp.values()]
-    .filter((g) => g.ownerNames.length >= 2)
-    .sort((a, b) => b.ownerNames.length - a.ownerNames.length || a.name.localeCompare(b.name, 'ko'))
+    .filter((g) => g.owners.length >= 2)
+    .sort((a, b) => b.owners.length - a.owners.length || a.name.localeCompare(b.name, 'ko'))
     .slice(0, 24)
 }
 
@@ -199,55 +197,10 @@ function buildMemberStats(members: SteamMemberRow[], owned: OwnedRow[]): MemberS
 export default async function SteamPage() {
   const [result, deals] = await Promise.all([loadSteamData(), getSteamFeaturedDealSnapshot()])
 
-  return (
-    <main className={SHELL}>
-      <div className={CONTAINER}>
-        <HeroBanner
-          kicker="Steam"
-          title="스팀 라운지"
-          description="나와 겹치는 게임, 멤버들이 함께 할 수 있는 게임과 최근 플레이 기록을 모았습니다."
-          className="mb-8"
-        />
-
-        <div className="mb-10">
-          <SteamLinkForm />
-        </div>
-
-        <SteamContentTabs
-          community={
-            <>
-              {/* 실시간 섹션. Client → /api/steam-presence(force-dynamic). 이 페이지의 캐시와 무관하다.
-                  숨겨질 수 있으므로 여백은 컴포넌트가 직접 갖는다(빈 div 여백 방지). */}
-              <SteamPresence />
-
-              {/* 개인화 섹션. 이 컴포넌트의 실패는 아래 공통 섹션에 영향을 주지 않는다. */}
-              <div className="mb-12">
-                <SharedWithMe />
-              </div>
-
-              {!result.ok ? (
-                <EmptyState>스팀 데이터를 아직 사용할 수 없습니다. 잠시 후 다시 확인해주세요.</EmptyState>
-              ) : (
-                <SteamSections members={result.members} owned={result.owned} />
-              )}
-            </>
-          }
-          deals={<SteamDeals deals={deals} />}
-        />
-      </div>
-    </main>
-  )
-}
-
-function SteamSections({ members, owned }: { members: SteamMemberRow[]; owned: OwnedRow[] }) {
-  if (members.length === 0) {
-    return <EmptyState>아직 스팀 계정을 연결한 멤버가 없습니다.</EmptyState>
-  }
-
+  const members = result.ok ? result.members : []
+  const owned = result.ok ? result.owned : []
   const sharedGames = buildSharedGames(members, owned)
-  const stats = buildMemberStats(members, owned)
-
-  const recentPlayers = stats
+  const recentPlayers = buildMemberStats(members, owned)
     .filter((s) => s.recentMinutes > 0)
     .sort((a, b) => b.recentMinutes - a.recentMinutes)
   const privateMembers = members.filter(
@@ -260,71 +213,82 @@ function SteamSections({ members, owned }: { members: SteamMemberRow[]; owned: O
     .at(-1)
 
   return (
-    <div className="space-y-12">
-      <section>
-        <SectionHeader
-          title="함께 할 수 있는 게임"
-          hint="2명 이상이 보유한 멀티플레이 게임입니다."
+    <main className={SHELL}>
+      <div className={CONTAINER}>
+        <HeroBanner
+          kicker="Steam"
+          title="스팀 라운지"
+          description="멤버들과 함께 할 게임을 찾고, 지금 누가 접속 중인지 확인하세요."
+          stats={
+            result.ok
+              ? [
+                  { label: '연결 멤버', value: `${members.length}명` },
+                  { label: '함께 할 게임', value: `${sharedGames.length}개` },
+                ]
+              : undefined
+          }
+          size="md"
+          className="mb-6"
         />
-        {sharedGames.length === 0 ? (
-          <EmptyState>아직 함께 보유한 멀티플레이 게임이 없습니다.</EmptyState>
-        ) : (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {sharedGames.map((game) => (
-              <li
-                key={game.appid}
-                className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition-colors hover:border-line-strong"
-              >
-                <div className="relative h-[42px] w-[110px] shrink-0 overflow-hidden rounded-lg border border-line bg-surface-2">
-                  <SteamThumb appid={game.appid} name={game.name} headerImageUrl={game.headerImageUrl} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-bold text-fg">{game.name}</p>
-                    {game.isMultiplayer === null && (
-                      <span className="shrink-0 rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-muted">
-                        분류 미확인
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 truncate text-[11px] text-subtle">
-                    {game.ownerNames.length}명 보유 · {game.ownerNames.join(', ')}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+
+        {/* lg+: 왼쪽 메인(탭) + 오른쪽 사이드(작은 카드). 모바일: 내 스팀 → 접속 중 → 탭 → 최근 2주. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr] lg:items-start">
+          {/* 개인화 카드 2개 — 전부 Client → force-dynamic API. 이 페이지(ISR)의 캐시와 무관하다. */}
+          <aside className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1" aria-label="내 스팀과 접속 현황">
+            <SteamLinkForm variant="compact" />
+            <SteamPresence variant="compact" />
+          </aside>
+
+          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+            <SteamContentTabs
+              together={
+                <section>
+                  <SectionHeader title="함께 할 수 있는 게임" hint="2명 이상이 가진 멀티플레이 게임이에요." />
+                  {!result.ok ? (
+                    <EmptyState>스팀 데이터를 아직 사용할 수 없습니다. 잠시 후 다시 확인해주세요.</EmptyState>
+                  ) : members.length === 0 ? (
+                    <EmptyState>아직 스팀 계정을 연결한 멤버가 없습니다.</EmptyState>
+                  ) : (
+                    <SharedGamesGrid games={sharedGames} />
+                  )}
+                </section>
+              }
+              // 개인화 섹션. 이 컴포넌트의 실패는 다른 탭·사이드 카드에 영향을 주지 않는다.
+              shared={<SharedWithMe />}
+              deals={<SteamDeals deals={deals} />}
+            />
+          </div>
+
+          {result.ok && members.length > 0 && (
+            <aside className="lg:col-start-2 lg:row-start-2" aria-label="최근 2주 플레이">
+              {/* 데이터는 전원 동일(ISR)하고, '나 숨기기'는 클라이언트에서만 수행한다. */}
+              <RecentPlayedList
+                players={recentPlayers.map((stat) => ({
+                  memberId: stat.member.id,
+                  memberName: stat.member.member_name,
+                  avatarUrl: stat.member.steam_avatar_url ?? resolveAvatarUrl(stat.member),
+                  totalText: formatHours(stat.recentMinutes),
+                  gamesText: stat.recentGames.map((g) => `${g.name} ${formatHours(g.minutes)}`).join(' · '),
+                }))}
+              />
+            </aside>
+          )}
+        </div>
+
+        {result.ok && members.length > 0 && (
+          <p className="mt-8 text-[11px] leading-relaxed text-subtle">
+            마지막 동기화 {formatSyncedAt(lastSyncedAt ?? null) ?? '기록 없음'}
+            {privateMembers.length > 0 && (
+              <>
+                {' · '}
+                <span className="text-warn-ink/80">
+                  프로필 비공개(게임 미표시): {privateMembers.map((m) => m.member_name).join(', ')}
+                </span>
+              </>
+            )}
+          </p>
         )}
-      </section>
-
-      <section>
-        <SectionHeader title="최근 2주 플레이" hint="내 기록은 위 '내 스팀 계정'에 표시됩니다. 여기는 다른 멤버들의 기록이에요." />
-        {recentPlayers.length === 0 ? (
-          <EmptyState>최근 2주간 플레이 기록이 없습니다.</EmptyState>
-        ) : (
-          // 데이터는 전원 동일(ISR)하고, '나 숨기기'는 클라이언트에서만 수행한다.
-          <RecentPlayedList
-            players={recentPlayers.map((stat) => ({
-              memberId: stat.member.id,
-              memberName: stat.member.member_name,
-              avatarUrl: stat.member.steam_avatar_url ?? resolveAvatarUrl(stat.member),
-              totalText: formatHours(stat.recentMinutes),
-              gamesText: stat.recentGames.map((g) => `${g.name} ${formatHours(g.minutes)}`).join(' · '),
-            }))}
-          />
-        )}
-      </section>
-
-      {privateMembers.length > 0 && (
-        <p className="text-[11px] text-warn-ink/80">
-          프로필 비공개 — 게임 데이터가 표시되지 않습니다:{' '}
-          {privateMembers.map((m) => m.member_name).join(', ')}
-        </p>
-      )}
-
-      <p className="text-[11px] text-subtle">
-        마지막 동기화 {formatSyncedAt(lastSyncedAt ?? null) ?? '기록 없음'}
-      </p>
-    </div>
+      </div>
+    </main>
   )
 }

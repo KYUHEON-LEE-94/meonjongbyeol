@@ -2,20 +2,23 @@
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
-type TabId = 'community' | 'deals'
+type TabId = 'together' | 'shared' | 'deals'
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'community', label: '커뮤니티 게임' },
-  { id: 'deals', label: 'Steam 할인' },
+  { id: 'together', label: '함께 할 게임' },
+  { id: 'shared', label: '나와 같은 게임' },
+  { id: 'deals', label: '스팀 할인' },
 ]
 
 type SteamContentTabsProps = {
-  community: ReactNode
+  together: ReactNode
+  shared: ReactNode
   deals: ReactNode
 }
 
-export default function SteamContentTabs({ community, deals }: SteamContentTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('community')
+export default function SteamContentTabs({ together, shared, deals }: SteamContentTabsProps) {
+  const [activeTab, setActiveTab] = useState<TabId>('together')
+  const panels: Record<TabId, ReactNode> = { together, shared, deals }
   const idPrefix = useId()
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
@@ -50,7 +53,7 @@ export default function SteamContentTabs({ community, deals }: SteamContentTabsP
       <div
         role="tablist"
         aria-label="스팀 콘텐츠"
-        className="mb-6 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1"
+        className="mb-5 flex w-full gap-1 overflow-x-auto rounded-2xl bg-surface p-1 sm:w-fit"
       >
         {TABS.map((tab, index) => {
           const isActive = activeTab === tab.id
@@ -71,7 +74,7 @@ export default function SteamContentTabs({ community, deals }: SteamContentTabsP
               tabIndex={isActive ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
               onKeyDown={(event) => onTabKeyDown(event, index)}
-              className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
+              className={`flex-1 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:flex-none ${
                 isActive
                   ? 'bg-brand text-white shadow-sm'
                   : 'text-muted hover:bg-surface-2 hover:text-fg'
@@ -96,7 +99,7 @@ export default function SteamContentTabs({ community, deals }: SteamContentTabsP
             aria-labelledby={tabId}
             hidden={!isActive}
           >
-            {tab.id === 'community' ? community : deals}
+            {panels[tab.id]}
           </div>
         )
       })}

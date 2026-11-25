@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { resolveAvatarUrl } from '@/lib/members/avatar'
 import SectionHeader from '@/app/components/ui/SectionHeader'
 import EmptyState from '@/app/components/ui/EmptyState'
+import { H3, HINT, SIDE_CARD } from '@/lib/ui/styles'
 
 /**
  * ⚠ /steam 페이지는 ISR(revalidate=300) 공유 캐시다. presence 는 실시간이자 세션 인증이
@@ -44,7 +45,10 @@ const PERSONA_LABEL: Record<number, string> = {
   6: '플레이 희망',
 }
 
-export default function SteamPresence() {
+type Variant = 'default' | 'compact'
+
+/** variant='compact' = /steam 사이드 카드(세로 리스트). 데이터·폴링·3-상태 규칙은 동일하다. */
+export default function SteamPresence({ variant = 'default' }: { variant?: Variant }) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -114,6 +118,25 @@ export default function SteamPresence() {
   if (state.kind === 'hidden') return null
   if (state.kind === 'ready' && state.members.length === 0) return null
 
+  if (variant === 'compact') {
+    const onlineCount = state.kind === 'ready' ? state.members.filter((m) => m.state === 'online').length : null
+    return (
+      <section className={SIDE_CARD}>
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h2 className={`${H3} flex items-center gap-2`}>
+            <span aria-hidden className="h-2 w-2 rounded-full bg-ok" />
+            지금 스팀 접속 중
+            {onlineCount !== null && onlineCount > 0 && (
+              <span className="font-display text-xs font-bold text-ok-ink tabular-nums">{onlineCount}</span>
+            )}
+          </h2>
+          <span className={HINT}>1분마다 갱신</span>
+        </div>
+        <CompactBody state={state} />
+      </section>
+    )
+  }
+
   return (
     <section className="mb-12">
       <SectionHeader
@@ -171,13 +194,62 @@ function Body({ state }: { state: LoadState }) {
   )
 }
 
-function Avatar({ member }: { member: PresenceMember }) {
+function CompactBody({ state }: { state: LoadState }) {
+  if (state.kind === 'loading') return <p className="py-3 text-center text-xs text-subtle">불러오는 중...</p>
+  if (state.kind === 'error') return <p className="py-3 text-center text-xs text-muted">{state.message}</p>
+  if (state.kind === 'hidden') return null
+
+  const online = state.members.filter((m) => m.state === 'online')
+  const unavailable = state.members.filter((m) => m.state === 'unavailable')
+
+  return (
+    <div className="space-y-3">
+      {online.length === 0 ? (
+        <p className="py-3 text-center text-xs text-muted">지금 스팀에 접속한 멤버가 없습니다.</p>
+      ) : (
+        <ul className="-mx-2 space-y-0.5">
+          {online.map((m) => (
+            <li key={m.member_id} className="flex items-center gap-3 rounded-2xl px-2 py-2">
+              <Avatar member={m} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-fg">{m.member_name}</p>
+                {!m.game_name && (
+                  <p className="truncate text-[11px] text-subtle">
+                    {PERSONA_LABEL[m.persona_state ?? 1] ?? '온라인'}
+                  </p>
+                )}
+              </div>
+              {m.game_name && (
+                <span
+                  className="max-w-[55%] shrink-0 truncate rounded-full bg-ok/12 px-2.5 py-1 text-[11px] font-bold text-ok-ink"
+                  title={m.game_name}
+                >
+                  {m.game_name}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {unavailable.length > 0 && (
+        <p className="border-t border-line pt-3 text-[11px] leading-relaxed text-warn-ink/80">
+          표시 불가 — 프로필 비공개: {unavailable.map((m) => m.member_name).join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Avatar({ member, size = 'md' }: { member: PresenceMember; size?: 'md' | 'sm' }) {
   const imageUrl = member.steam_avatar_url ?? resolveAvatarUrl(member)
   return (
     <div className="relative shrink-0">
-      <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-line bg-surface-2">
+      <div
+        className={`relative overflow-hidden rounded-xl border border-line bg-surface-2 ${size === 'sm' ? 'h-9 w-9' : 'h-10 w-10'}`}
+      >
         {imageUrl ? (
-          <Image src={imageUrl} alt="" fill sizes="40px" className="object-cover" unoptimized />
+          <Image src={imageUrl} alt="" fill sizes={size === 'sm' ? '36px' : '40px'} className="object-cover" unoptimized />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-sm text-subtle">
             {member.member_name.slice(0, 1)}

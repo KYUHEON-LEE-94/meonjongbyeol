@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { notifySteamLinkChanged } from '@/lib/client/steamLinkEvents'
+import { BTN_PRIMARY, H3, HINT, INPUT, SIDE_CARD } from '@/lib/ui/styles'
 
 type SteamPayload = {
   steam_id64: string
@@ -26,7 +27,15 @@ function formatHours(minutes: number) {
 const inputCls =
   'w-full px-4 py-3 rounded-xl text-sm font-medium text-fg bg-surface-2 border border-line placeholder:text-faint focus:outline-none focus:border-ok/50 focus:bg-ok/5 transition-all'
 
-export default function SteamLinkForm() {
+type Variant = 'card' | 'compact'
+
+/** variant='compact' = /steam 사이드 카드. 연결돼 있으면 한 줄 요약 + 접힌 관리 메뉴. API·이벤트 흐름은 동일하다. */
+export default function SteamLinkForm({ variant = 'card' }: { variant?: Variant }) {
+  if (variant === 'compact') return <CompactSteamLinkForm />
+  return <CardSteamLinkForm />
+}
+
+function useSteamLink() {
   const router = useRouter()
 
   const [loaded, setLoaded] = useState(false)
@@ -108,6 +117,18 @@ export default function SteamLinkForm() {
       setLoading(false)
     }
   }
+
+  return {
+    loaded, hasMember, steam, input, setInput, loading, message, error,
+    recentGames, recentMinutes, handleSubmit, handleUnlink,
+  }
+}
+
+function CardSteamLinkForm() {
+  const {
+    loaded, hasMember, steam, input, setInput, loading, message, error,
+    recentGames, recentMinutes, handleSubmit, handleUnlink,
+  } = useSteamLink()
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-5">
@@ -220,6 +241,113 @@ export default function SteamLinkForm() {
           {error}
         </div>
       )}
+    </section>
+  )
+}
+
+function CompactSteamLinkForm() {
+  const {
+    loaded, hasMember, steam, input, setInput, loading, message, error,
+    recentGames, recentMinutes, handleSubmit, handleUnlink,
+  } = useSteamLink()
+  const [manageOpen, setManageOpen] = useState(false)
+
+  return (
+    <section className={SIDE_CARD}>
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className={H3}>내 스팀</h2>
+        {steam && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              steam.is_private ? 'bg-warn/12 text-warn-ink' : 'bg-ok/12 text-ok-ink'
+            }`}
+          >
+            {steam.is_private ? '비공개' : '공개'}
+          </span>
+        )}
+      </div>
+
+      {!loaded ? (
+        <p className="py-3 text-center text-xs text-subtle">불러오는 중...</p>
+      ) : !hasMember ? (
+        <p className="text-xs text-muted">먼저 프로필에서 멤버 등록을 완료해주세요.</p>
+      ) : steam ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-surface-2">
+              {steam.steam_avatar_url && (
+                <Image src={steam.steam_avatar_url} alt="" fill sizes="44px" className="object-cover" unoptimized />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-fg">{steam.steam_persona ?? '이름 없음'}</p>
+              {!steam.is_private && (
+                <p className="truncate text-[11px] text-subtle">
+                  최근 2주 {recentGames.length > 0 ? formatHours(recentMinutes) : '기록 없음'}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setManageOpen((v) => !v)}
+              aria-expanded={manageOpen}
+              className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-[11px] font-bold text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+              관리
+            </button>
+          </div>
+
+          {manageOpen && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-2 px-3 py-2">
+              <p className="min-w-0 truncate text-[11px] text-subtle">{steam.steam_id64}</p>
+              <button
+                type="button"
+                onClick={handleUnlink}
+                disabled={loading}
+                className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-danger-ink transition-colors hover:bg-danger/10 disabled:opacity-50"
+              >
+                연결 해제
+              </button>
+            </div>
+          )}
+
+          {steam.is_private ? (
+            <p className="rounded-2xl bg-warn/10 px-3 py-2 text-[11px] font-bold leading-relaxed text-warn-ink">
+              프로필 비공개 — 스팀 설정에서 &ldquo;내 프로필&rdquo;과 &ldquo;게임 상세 정보&rdquo;를 공개로 바꿔주세요.
+            </p>
+          ) : (
+            recentGames.length > 0 && (
+              <ul className="space-y-1 border-t border-line pt-3">
+                {recentGames.map((game) => (
+                  <li key={game.appid} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="min-w-0 truncate font-semibold text-fg">{game.name}</span>
+                    <span className="shrink-0 font-bold text-muted tabular-nums">{formatHours(game.minutes)}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-2.5">
+          <p className={HINT}>프로필 주소나 SteamID64 를 넣으면 보유 게임이 집계됩니다.</p>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className={INPUT}
+            placeholder="steamcommunity.com/id/… 또는 7656…"
+            aria-label="스팀 프로필 주소 또는 SteamID64"
+            required
+          />
+          <button type="submit" disabled={loading} className={`${BTN_PRIMARY} w-full`}>
+            {loading ? '연결 중...' : '스팀 계정 연결하기'}
+          </button>
+        </form>
+      )}
+
+      {message && <p className="mt-3 rounded-2xl bg-ok/10 px-3 py-2 text-[11px] font-bold text-ok-ink">{message}</p>}
+      {error && <p className="mt-3 rounded-2xl bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger-ink">{error}</p>}
     </section>
   )
 }

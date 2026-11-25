@@ -597,9 +597,11 @@ URL 쿼리 파라미터(`?api_key=`)로 전송하지 않는다 — 서버 로그
 
 ## 스팀 페이지 (`/steam`)
 
-**섹션 구성:** 헤더 → `SteamLinkForm` → **지금 스팀 접속 중**(실시간) →
-**나와 같은 게임을 가진 사람들**(개인화) →
-함께 할 수 있는 게임(2명 이상 보유) → 최근 2주 플레이 → 비공개 멤버 안내 → 마지막 동기화 시각.
+**섹션 구성(2026-11-25 개편):** HeroBanner(공개 집계 stats) → lg 2단 그리드.
+- 오른쪽 사이드: `SteamLinkForm variant="compact"`(내 스팀) · `SteamPresence variant="compact"`(지금 접속 중, 실시간) · `RecentPlayedList`(최근 2주 TOP5 + 전체 보기)
+- 왼쪽 메인 `SteamContentTabs` 3탭: **함께 할 게임**(`SharedGamesGrid`, 2명 이상 보유·서버 상한 24·처음 12개) / **나와 같은 게임**(`SharedWithMe`, 개인화) / **스팀 할인**
+- 모바일 순서: 내 스팀 → 접속 중 → 탭 → 최근 2주. 비공개 멤버 안내·마지막 동기화는 하단 메타 한 줄.
+- `SteamLinkForm`/`SteamPresence`의 기본 variant(card/default)는 온보딩·홈이 그대로 쓴다.
 
 ### "지금 스팀 접속 중" (`SteamPresence.tsx` → `/api/steam-presence`)
 

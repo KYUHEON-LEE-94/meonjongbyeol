@@ -6,7 +6,7 @@ export default function SteamDeals({ deals }: { deals: SteamFeaturedDeal[] | nul
   if (deals === null) {
     return (
       <section>
-        <SectionHeader title="Steam 할인" hint="한국 Steam 상점의 현재 할인 품목입니다." />
+        <SectionHeader title="스팀 할인" hint="한국 스팀 상점의 현재 할인 품목이에요." />
         <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-subtle">
           할인 정보를 잠시 불러올 수 없습니다. 잠시 후 다시 확인해주세요.
         </p>
@@ -14,9 +14,9 @@ export default function SteamDeals({ deals }: { deals: SteamFeaturedDeal[] | nul
     )
   }
   return <section>
-    <SectionHeader title="Steam 할인" hint="한국 Steam 상점의 현재 할인 품목입니다." />
+    <SectionHeader title="스팀 할인" hint="한국 스팀 상점의 현재 할인 품목이에요." />
     {deals.length === 0 ? <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-subtle">현재 표시할 할인 품목이 없습니다.</p> :
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {deals.map((deal) => <li key={deal.appid} className="overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-line-strong">
           <a href={`https://store.steampowered.com/app/${deal.appid}/?cc=kr&l=koreana`} target="_blank" rel="noreferrer" className="block">
             <div className="relative aspect-[2.35] bg-surface-2"><SteamThumb appid={deal.appid} name={deal.name} headerImageUrl={deal.imageUrl} /></div>

@@ -70,3 +70,8 @@ export const NAV_ITEM_ACTIVE =
   'relative flex min-h-11 items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-bold bg-brand text-white shadow-[0_10px_24px_-12px_var(--color-brand)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
 export const NAV_SECTION = 'px-4 pb-2 pt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-subtle'
 export const BADGE_DOT = 'inline-block h-2 w-2 shrink-0 rounded-full bg-accent'
+
+// 사이드 컬럼의 작은 카드(제목 H3 + 본문). 2단 레이아웃 페이지(/steam 등)에서 쓴다.
+export const SIDE_CARD = `${CARD} p-5`
+export const H3 = 'text-sm font-bold tracking-tight text-fg'
+export const HINT = 'text-xs leading-relaxed text-subtle'

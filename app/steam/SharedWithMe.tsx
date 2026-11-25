@@ -6,6 +6,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import SteamThumb from '@/app/steam/SteamThumb'
 import { resolveAvatarUrl } from '@/lib/members/avatar'
+import SectionHeader from '@/app/components/ui/SectionHeader'
+import { CARD, PILL, PILL_ACTIVE } from '@/lib/ui/styles'
 
 /**
  * ⚠ 이 섹션은 세션에 의존한다. /steam 페이지는 ISR(revalidate=300) 공유 캐시이므로
@@ -50,7 +52,7 @@ function formatHours(minutes: number) {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface px-6 py-8 text-center text-sm text-muted">
+    <div className={`${CARD} px-6 py-10 text-center text-sm text-muted`}>
       {children}
     </div>
   )
@@ -134,25 +136,20 @@ export default function SharedWithMe() {
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black text-fg">나와 같은 게임을 가진 사람들</h2>
-          <p className="mt-1 text-xs text-subtle">
-            내 보유 게임과 겹치는 멤버입니다. 이름을 누르면 겹치는 게임을 모두 볼 수 있습니다.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setMultiplayerOnly((v) => !v)}
-          className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-colors ${
-            multiplayerOnly
-              ? 'border-ok/40 bg-ok/10 text-ok-ink'
-              : 'border-line bg-surface text-muted hover:text-fg'
-          }`}
-        >
-          멀티플레이만 {multiplayerOnly ? 'ON' : 'OFF'}
-        </button>
-      </div>
+      <SectionHeader
+        title="나와 같은 게임을 가진 사람들"
+        hint="이름을 누르면 겹치는 게임을 모두 볼 수 있어요."
+        action={
+          <button
+            type="button"
+            onClick={() => setMultiplayerOnly((v) => !v)}
+            aria-pressed={multiplayerOnly}
+            className={`${multiplayerOnly ? PILL_ACTIVE : PILL} shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40`}
+          >
+            멀티플레이만 {multiplayerOnly ? 'ON' : 'OFF'}
+          </button>
+        }
+      />
 
       <Body
         state={state}
@@ -200,7 +197,7 @@ function Body({
     )
   }
   if (state.state === 'no_steam') {
-    return <Notice>스팀 ID를 먼저 등록해주세요. (위 &ldquo;내 스팀 계정&rdquo; 참고)</Notice>
+    return <Notice>스팀 ID를 먼저 등록해주세요. (&ldquo;내 스팀&rdquo; 카드에서 등록할 수 있어요)</Notice>
   }
   if (state.state === 'private') {
     return (
@@ -227,12 +224,12 @@ function Body({
         return (
           <li
             key={m.member_id}
-            className="overflow-hidden rounded-2xl border border-line bg-surface"
+            className={`${CARD} overflow-hidden`}
           >
             <button
               type="button"
               onClick={() => onToggle(m.member_id)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40"
             >
               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2">
                 {imageUrl ? (
@@ -249,7 +246,7 @@ function Body({
                   {m.preview_names.length > 0 ? m.preview_names.join(' · ') : '겹치는 게임'}
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-black text-ok-ink">
+              <span className="shrink-0 text-sm font-bold text-brand-ink tabular-nums">
                 {m.shared_count.toLocaleString('ko-KR')}개
               </span>
               <span className={`shrink-0 text-xs text-subtle transition-transform ${open ? 'rotate-180' : ''}`}>
