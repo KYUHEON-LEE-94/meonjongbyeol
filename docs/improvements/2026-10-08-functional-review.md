@@ -1,7 +1,7 @@
 # 기능 개선 진행 기록 (2026-10-08)
 
 2026-10-08 코드 점검(백엔드 동기화·크론·푸시 / 프론트 화면) 결과를 추천 순서대로 반영한 기록.
-각 배치는 `lolche-dev` 파이프라인(Analyst → Developer → QA)으로 처리한다.
+각 배치는 `meonjongbyeol-dev` 파이프라인(Analyst → Developer → QA)으로 처리한다.
 
 ## 진행 현황
 

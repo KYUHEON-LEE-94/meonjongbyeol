@@ -1,4 +1,4 @@
-# 먼종별 (lolche-company)
+# 먼종별 (meonjongbyeol)
 
 '먼가 종겜하는 별난 것들'(먼종별) — 종겜방 멤버 전용 커뮤니티 서비스.
 내전 모집·스팀(같은 게임·접속 중·할인)·디스코드 활동·캘린더를 중심으로, Riot Games API(LoL 키)로 롤 솔로랭크 랭킹을 제공한다.
@@ -690,11 +690,11 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
 - DB 마이그레이션은 `scripts/sql/`에 파일로만 작성하고 Supabase SQL Editor에서 직접 실행한다.
   **SQL 먼저 → 배포 나중** 순서를 지킬 것 (`members.status`, `riot_accounts.lol_puuid`를 코드가 참조함)
 
-## 하네스: lolche-dev
+## 하네스: meonjongbyeol-dev
 
 **목표:** 코드 변경 작업을 Analyst → Developer → QA 파이프라인으로 안전하게 처리
 
-**트리거:** 기능 추가·버그 수정·리팩토링·보안 개선 등 코드 변경 요청 시 `lolche-dev` 스킬을 사용하라. 단순 코드 설명이나 질문은 직접 응답 가능.
+**트리거:** 기능 추가·버그 수정·리팩토링·보안 개선 등 코드 변경 요청 시 `meonjongbyeol-dev` 스킬을 사용하라. 단순 코드 설명이나 질문은 직접 응답 가능.
 
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |

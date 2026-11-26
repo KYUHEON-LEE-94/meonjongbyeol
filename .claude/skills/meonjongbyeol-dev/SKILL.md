@@ -1,11 +1,11 @@
 ---
-name: lolche-dev
-description: "lolche-company 프로젝트의 기능 구현, 버그 수정, 리팩토링, 보안 개선 등 모든 코드 변경 작업을 Analyst→Developer→QA 파이프라인으로 처리하는 오케스트레이터. '기능 추가', '버그 수정', '수정해줘', '개선해줘', '보안', '최적화', '리팩토링', 'API 변경', 'DB 쿼리', '컴포넌트 수정' 등 코드 변경이 필요한 요청이면 반드시 이 스킬을 사용할 것. 단순 코드 설명이나 질문에는 사용하지 않는다."
+name: meonjongbyeol-dev
+description: "meonjongbyeol 프로젝트의 기능 구현, 버그 수정, 리팩토링, 보안 개선 등 모든 코드 변경 작업을 Analyst→Developer→QA 파이프라인으로 처리하는 오케스트레이터. '기능 추가', '버그 수정', '수정해줘', '개선해줘', '보안', '최적화', '리팩토링', 'API 변경', 'DB 쿼리', '컴포넌트 수정' 등 코드 변경이 필요한 요청이면 반드시 이 스킬을 사용할 것. 단순 코드 설명이나 질문에는 사용하지 않는다."
 ---
 
-# lolche-dev 오케스트레이터
+# meonjongbyeol-dev 오케스트레이터
 
-lolche-company 코드베이스의 모든 코드 변경 작업을 **Analyst → Developer → QA** 파이프라인으로 처리한다.
+meonjongbyeol 코드베이스의 모든 코드 변경 작업을 **Analyst → Developer → QA** 파이프라인으로 처리한다.
 
 **실행 모드:** 에이전트 팀 (Agent tool, 순차 파이프라인)
 

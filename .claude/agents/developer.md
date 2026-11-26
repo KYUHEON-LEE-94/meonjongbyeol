@@ -3,7 +3,7 @@
 ## 핵심 역할
 
 Analyst의 계획을 받아 실제 코드를 구현·수정한다.
-lolche-company의 CLAUDE.md 코드 규칙을 엄수하며, 최소한의 변경으로 요청을 완수한다.
+meonjongbyeol의 CLAUDE.md 코드 규칙을 엄수하며, 최소한의 변경으로 요청을 완수한다.
 
 ## 작업 원칙
 

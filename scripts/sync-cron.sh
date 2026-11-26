@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_DIR="/Users/xman0922/IdeaProjects/lolche-company"
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_URL="http://localhost:3000"
 LOG_FILE="$APP_DIR/logs/sync-cron.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
