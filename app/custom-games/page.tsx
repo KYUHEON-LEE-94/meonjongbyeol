@@ -7,7 +7,15 @@ import Link from 'next/link'
 import SteamThumb from '@/app/steam/SteamThumb'
 import { Spinner } from '@/app/components/Spinner'
 import SteamGamePicker, { type SteamGameSelection } from '@/app/custom-games/_components/SteamGamePicker'
-import { LOL_CAPACITY, LOL_MODES, type CreatableGameKind, type LolMode } from '@/lib/customGames/constants'
+import {
+  DEFAULT_QUICK_START_MIN,
+  LOL_CAPACITY,
+  LOL_MODES,
+  QUICK_START_OPTIONS_MIN,
+  type CreatableGameKind,
+  type LolMode,
+  type QuickStartMin,
+} from '@/lib/customGames/constants'
 import {
   GAME_KIND_OPTIONS,
   LOL_MODE_LABELS,
@@ -18,9 +26,16 @@ import {
   openNativePicker,
   effectiveStatusBadgeClass,
   effectiveStatusLabel,
+  isQuickGame,
   isRecruitClosed,
+  quickGameState,
   todayKstDate,
 } from '@/lib/customGames/display'
+import { useCustomGamesRealtime } from '@/app/custom-games/_components/useCustomGamesRealtime'
+import { useNow } from '@/app/custom-games/_components/useNow'
+import LiveToast from '@/app/custom-games/_components/LiveToast'
+import SeatBar from '@/app/custom-games/_components/SeatBar'
+import { QuickLiveBadge, quickCountdownText } from '@/app/custom-games/_components/QuickLiveBadge'
 import { ALERT, BTN_NEUTRAL, BTN_ON_HERO, BTN_PRIMARY, CARD_HOVER, CONTAINER, INPUT, SHELL } from '@/lib/ui/styles'
 import HeroBanner from '@/app/components/ui/HeroBanner'
 import EmptyState from '@/app/components/ui/EmptyState'
@@ -51,9 +66,23 @@ type GameRow = {
     waitlist_position?: number | null
     is_host?: boolean
   } | null
+  latest_joiner?: { name: string; joined_at: string; is_me: boolean } | null
 }
 
 const DEFAULT_CAPACITY = 8
+/** 10분 이내 시작하는 번개가 있으면 초 단위 카운트다운이 필요하다. */
+const FAST_TICK_WINDOW_MS = 10 * 60 * 1000
+
+type GameSnapshot = { total: number; latestAt: string | null }
+
+function snapshotOf(games: GameRow[]): Map<string, GameSnapshot> {
+  return new Map(
+    games.map((g) => [
+      g.id,
+      { total: (g.confirmed_count ?? 0) + (g.waitlist_count ?? 0), latestAt: g.latest_joiner?.joined_at ?? null },
+    ]),
+  )
+}
 
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
@@ -102,6 +131,8 @@ export default function CustomGamesPage() {
   const [kindLabel, setKindLabel] = useState('')
   const [steamGame, setSteamGame] = useState<SteamGameSelection>({ label: '', appId: null })
   const [lolMode, setLolMode] = useState<LolMode>('rift')
+  const [quickMode, setQuickMode] = useState(false)
+  const [quickStartMin, setQuickStartMin] = useState<QuickStartMin>(DEFAULT_QUICK_START_MIN)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -124,19 +155,71 @@ export default function CustomGamesPage() {
     }, 4000)
   }, [])
 
-  const loadGames = useCallback(async () => {
-    setLoading(true)
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null)
+  const dismissToast = useCallback(() => setToast(null), [])
+
+  const loadedRef = useRef(false)
+  const reqSeqRef = useRef(0)
+  const prevSnapshotRef = useRef<Map<string, GameSnapshot> | null>(null)
+
+  /**
+   * silent: 라이브 재조회. 이미 목록이 떠 있으면 스피너를 띄우지 않고(R3), 실패해도 화면·알림을 건드리지 않는다.
+   * live: 직전 스냅샷과 비교해 남이 방금 참가한 내전에 토스트를 띄운다(신규 내전·본인 참가 제외).
+   */
+  const loadGames = useCallback(async (opts?: { silent?: boolean; live?: boolean }) => {
+    const silent = opts?.silent ?? false
+    const seq = ++reqSeqRef.current
+    if (!loadedRef.current) setLoading(true)
     try {
-      const res = await fetch('/api/custom-games')
-      const body = await res.json()
-      if (!res.ok) { showMsg('error', body.error ?? '목록 로드 실패'); return }
-      setGames((body.games ?? []) as GameRow[])
+      const res = await fetch('/api/custom-games', { cache: 'no-store' })
+      const body = await res.json().catch(() => ({}))
+      if (seq !== reqSeqRef.current) return
+      if (!res.ok) {
+        if (!silent) showMsg('error', body.error ?? '목록 로드 실패')
+        return
+      }
+      const next = (body.games ?? []) as GameRow[]
+      const prev = prevSnapshotRef.current
+      if (opts?.live && prev) {
+        const joined = next.find((g) => {
+          const before = prev.get(g.id)
+          if (!before || !g.latest_joiner || g.latest_joiner.is_me) return false
+          const total = (g.confirmed_count ?? 0) + (g.waitlist_count ?? 0)
+          return total > before.total && g.latest_joiner.joined_at !== before.latestAt
+        })
+        if (joined?.latest_joiner) {
+          setToast({ id: Date.now(), message: `${joined.latest_joiner.name}님이 ‘${joined.title}’에 방금 참가했어요` })
+        }
+      }
+      prevSnapshotRef.current = snapshotOf(next)
+      loadedRef.current = true
+      setGames(next)
       setMigrationRequired(Boolean(body.migration_required))
-    } catch { showMsg('error', '알 수 없는 오류가 발생했습니다') }
-    finally { setLoading(false) }
+    } catch {
+      if (seq !== reqSeqRef.current) return
+      if (!silent) showMsg('error', '알 수 없는 오류가 발생했습니다')
+    } finally {
+      if (seq === reqSeqRef.current) setLoading(false)
+    }
   }, [showMsg])
 
   useEffect(() => { loadGames() }, [loadGames])
+
+  const liveReload = useCallback(() => loadGames({ silent: true, live: true }), [loadGames])
+  useCustomGamesRealtime({ scope: 'list' }, liveReload)
+
+  // 10분 안에 시작하는 번개가 있으면 1초, 아니면 30초 tick (마감·LIVE 판정 재평가).
+  const [fastTick, setFastTick] = useState(false)
+  const now = useNow(fastTick ? 1000 : 30_000)
+  useEffect(() => {
+    if (now === null) return
+    const need = games.some((g) => {
+      if (g.status !== 'recruiting' || !g.scheduled_at || !isQuickGame(g)) return false
+      const diff = Date.parse(g.scheduled_at) - now
+      return diff > 0 && diff <= FAST_TICK_WINDOW_MS
+    })
+    if (need !== fastTick) setFastTick(need)
+  }, [games, now, fastTick])
 
   const isLol = gameKind === 'lol'
   const effectiveCapacity = isLol ? LOL_CAPACITY : capacityInput
@@ -150,6 +233,8 @@ export default function CustomGamesPage() {
     setKindLabel('')
     setSteamGame({ label: '', appId: null })
     setLolMode('rift')
+    setQuickMode(false)
+    setQuickStartMin(DEFAULT_QUICK_START_MIN)
     setCreateError(null)
     setShowModal(true)
   }
@@ -163,20 +248,22 @@ export default function CustomGamesPage() {
     // 에러는 모달 내부에 표시한다 — 페이지 알림은 모달 배경 뒤에 가려 보이지 않는다.
     setCreateError(null)
     if (!titleInput.trim()) { setCreateError('제목을 입력하세요'); return }
-    if (!dateInput || !timeInput) { setCreateError('일자와 시간을 모두 입력하세요'); return }
+    if (!quickMode && (!dateInput || !timeInput)) { setCreateError('일자와 시간을 모두 입력하세요'); return }
     if (gameKind === 'etc' && !kindLabel.trim()) { setCreateError('기타 게임은 종류 이름을 입력하세요'); return }
 
     setCreating(true)
     try {
       // ⚠ 일자·시간은 문자열 그대로 보낸다. 클라이언트에서 Date로 변환하면
       //   브라우저 로컬 타임존으로 해석되어 실제 일정과 어긋난다.
+      //   번개는 시각 자체를 보내지 않는다 — 서버가 now + N분으로 정한다.
       const res = await fetch('/api/custom-games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: titleInput.trim(),
-          scheduled_date: dateInput,
-          scheduled_time: timeInput,
+          ...(quickMode
+            ? { quick: true, quick_start_min: quickStartMin }
+            : { scheduled_date: dateInput, scheduled_time: timeInput }),
           capacity: effectiveCapacity,
           game_kind: gameKind,
           game_kind_label:
@@ -296,8 +383,13 @@ export default function CustomGamesPage() {
                 const waitlistCount = g.waitlist_count ?? 0
                 const mine = g.my_participation ?? null
                 // 예정 시각이 지난 recruiting 은 "마감"으로 보고 참가를 막는다.
-                const joinable = g.status === 'recruiting' && !isRecruitClosed(g.status, g.scheduled_at)
+                // now 가 없는(첫 렌더) 동안은 기존과 같이 Date.now() 기준으로 판정한다.
+                const nowMs = now ?? undefined
+                const joinable = g.status === 'recruiting' && !isRecruitClosed(g.status, g.scheduled_at, nowMs)
                 const busy = busyId === g.id
+                const quickState = now !== null ? quickGameState(g, taken, capacity, now) : null
+                const countdown =
+                  quickState === 'live' && now !== null ? quickCountdownText(g.scheduled_at, taken, capacity, now) : null
 
                 return (
                   // 카드 전체 클릭은 제목 링크의 ::after 를 카드 크기로 늘려 처리한다(stretched link).
@@ -315,7 +407,14 @@ export default function CustomGamesPage() {
                           {g.title}
                         </Link>
                       </h2>
-                      <Badge className={effectiveStatusBadgeClass(g.status, g.scheduled_at)}>{effectiveStatusLabel(g.status, g.scheduled_at)}</Badge>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <QuickLiveBadge state={quickState} />
+                        {quickState !== 'expired' && (
+                          <Badge className={effectiveStatusBadgeClass(g.status, g.scheduled_at, nowMs)}>
+                            {effectiveStatusLabel(g.status, g.scheduled_at, nowMs)}
+                          </Badge>
+                        )}
+                      </span>
                     </div>
 
                     {g.game_kind === 'steam' && g.steam_app_id != null && (
@@ -355,7 +454,10 @@ export default function CustomGamesPage() {
                       )}
                     </div>
 
+                    {g.capacity != null && g.confirmed_count != null && <SeatBar taken={taken} capacity={capacity} />}
+
                     <div className="text-xs text-subtle flex flex-col gap-0.5">
+                      {countdown && <span className="font-bold text-danger-ink">{countdown}</span>}
                       <span>{formatKstSchedule(g.scheduled_at)}</span>
                       <span>주최: {g.host_member_name ?? '알 수 없음'}</span>
                     </div>
@@ -422,6 +524,8 @@ export default function CustomGamesPage() {
         </div>
       </main>
 
+      <LiveToast toast={toast} onDismiss={dismissToast} />
+
       {/* 모집 폼 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -450,6 +554,44 @@ export default function CustomGamesPage() {
               />
             </div>
 
+            <div>
+              <button
+                type="button"
+                onClick={() => setQuickMode((v) => !v)}
+                aria-pressed={quickMode}
+                disabled={creating}
+                className={`flex w-full min-h-11 items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-sm font-bold ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50 ${
+                  quickMode ? 'bg-danger/10 text-danger-ink ring-danger/30' : 'bg-surface-2 text-muted ring-transparent hover:text-fg'
+                }`}
+              >
+                <span>⚡ 지금 바로 (번개)</span>
+                <span className="text-xs font-semibold">{quickMode ? '켜짐' : '꺼짐'}</span>
+              </button>
+              {quickMode && (
+                <div className="mt-2">
+                  <p className="mb-2 text-xs font-bold text-muted">몇 분 뒤에 시작할까요?</p>
+                  <div className="grid grid-cols-4 gap-2" role="group" aria-label="시작까지 시간">
+                    {QUICK_START_OPTIONS_MIN.map((min) => (
+                      <button
+                        key={min}
+                        type="button"
+                        onClick={() => setQuickStartMin(min)}
+                        aria-pressed={quickStartMin === min}
+                        disabled={creating}
+                        className={`min-h-11 rounded-2xl text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50 ${
+                          quickStartMin === min ? 'bg-brand text-white' : 'bg-surface-2 text-muted hover:text-fg'
+                        }`}
+                      >
+                        {min}분
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-faint">시작 시각은 등록 시점 기준으로 서버가 정합니다</p>
+                </div>
+              )}
+            </div>
+
+            {!quickMode && (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">일자</label>
@@ -474,6 +616,7 @@ export default function CustomGamesPage() {
                 />
               </div>
             </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-muted mb-2 tracking-widest uppercase">게임 종류</label>
@@ -577,7 +720,7 @@ export default function CustomGamesPage() {
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={creating || !titleInput.trim() || !dateInput || !timeInput}
+                disabled={creating || !titleInput.trim() || (!quickMode && (!dateInput || !timeInput))}
                 className={`${BTN_PRIMARY} flex-1`}
               >
                 {creating ? <><Spinner size={4} /> 등록 중...</> : '모집 시작'}

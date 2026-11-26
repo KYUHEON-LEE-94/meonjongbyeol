@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { supabaseService } from '@/lib/supabase/service'
-import { BTN_ON_HERO, CARD, CONTAINER, ICON_BTN_ROUND, LIST_ITEM, LIST_THUMB, SHELL } from '@/lib/ui/styles'
+import { BTN_ON_HERO, CARD, CONTAINER, SHELL } from '@/lib/ui/styles'
 import HeroBanner from '@/app/components/ui/HeroBanner'
 import ProfileChecklist from '@/app/components/ProfileChecklist'
 import AdminPendingNotice from '@/app/components/AdminPendingNotice'
@@ -8,7 +8,8 @@ import HomeCalendar from '@/app/components/calendar/HomeCalendar'
 import HomeNews from '@/app/components/home/HomeNews'
 import DashboardDiscordTop5 from '@/app/components/home/DashboardDiscordTop5'
 import SteamPresence from '@/app/steam/SteamPresence'
-import { formatKstShort, gameKindLabel } from '@/lib/customGames/display'
+import HomeRecruitingGames, { type HomeRecruitingRow } from '@/app/components/home/HomeRecruitingGames'
+import { effectiveMemberCapacity } from '@/lib/customGames/waitlist'
 import { isMissingColumnError } from '@/lib/db/pgErrors'
 import { getLolPatchNotes } from '@/lib/lol/patchNotes'
 import { getSteamFeaturedDealSnapshot } from '@/lib/steam/featuredDealSnapshot'
@@ -18,14 +19,7 @@ import { fetchWeeklyDiscordTop5 } from '@/lib/discord/weeklyTop5'
 //   개인화(프로필 체크리스트·관리자 알림·캘린더·스팀 접속 중)는 전부 Client Island 가 동적 API 로 조회한다.
 export const revalidate = 60
 
-type RecruitingGame = {
-  id: string
-  title: string
-  game_kind: string | null
-  game_kind_label: string | null
-  scheduled_at: string | null
-  capacity: number | null
-}
+type RecruitingGame = Omit<HomeRecruitingRow, 'taken'>
 
 async function safe<T>(label: string, promise: Promise<T>, fallback: T): Promise<T> {
   try {
@@ -37,16 +31,21 @@ async function safe<T>(label: string, promise: Promise<T>, fallback: T): Promise
 }
 
 /** 마이그레이션(20260725) 미적용 환경에서도 대시보드가 죽지 않도록 신규 컬럼 부재를 흡수한다. */
-async function fetchRecruiting(): Promise<{ rows: RecruitingGame[]; count: number }> {
+async function fetchRecruiting(): Promise<{ rows: HomeRecruitingRow[]; count: number }> {
   const full = await supabaseService
     .from('custom_games')
-    .select('id,title,game_kind,game_kind_label,scheduled_at,capacity', { count: 'exact' })
+    .select('id,title,game_kind,game_kind_label,scheduled_at,created_at,capacity', { count: 'exact' })
     .eq('status', 'recruiting')
     .order('scheduled_at', { ascending: true })
     .limit(5)
 
   if (!full.error) {
-    return { rows: (full.data ?? []) as unknown as RecruitingGame[], count: full.count ?? 0 }
+    const rows = (full.data ?? []) as unknown as RecruitingGame[]
+    const taken = await safe('모집 중 내전 인원', fetchTakenSeats(rows), null)
+    return {
+      rows: rows.map((r) => ({ ...r, taken: taken?.get(r.id) })),
+      count: full.count ?? 0,
+    }
   }
   if (!isMissingColumnError(full.error)) {
     console.error('Supabase error:', full.error)
@@ -59,6 +58,35 @@ async function fetchRecruiting(): Promise<{ rows: RecruitingGame[]; count: numbe
     .eq('status', 'recruiting')
 
   return { rows: [], count: legacy.error ? 0 : legacy.count ?? 0 }
+}
+
+/**
+ * 공개 인원 집계(세션 무관 — ISR 안전). taken = min(참가자, 게스트 뺀 정원) + 게스트.
+ * 대기열 파생 규칙(waitlist.ts)을 재사용한다. 실패하면 null → 카드가 인원 바를 숨긴다.
+ */
+async function fetchTakenSeats(rows: RecruitingGame[]): Promise<Map<string, number> | null> {
+  if (rows.length === 0) return new Map()
+  const ids = rows.map((r) => r.id)
+  const [participants, guests] = await Promise.all([
+    supabaseService.from('custom_game_participants').select('custom_game_id').in('custom_game_id', ids),
+    supabaseService.from('custom_game_guests').select('custom_game_id').in('custom_game_id', ids),
+  ])
+  if (participants.error || guests.error) return null
+  const countBy = (list: { custom_game_id: string }[]) => {
+    const m = new Map<string, number>()
+    list.forEach((r) => m.set(r.custom_game_id, (m.get(r.custom_game_id) ?? 0) + 1))
+    return m
+  }
+  const p = countBy(participants.data ?? [])
+  const g = countBy(guests.data ?? [])
+  return new Map(
+    rows.map((r) => {
+      const guestCount = g.get(r.id) ?? 0
+      const memberCount = p.get(r.id) ?? 0
+      const cap = r.capacity ?? 0
+      return [r.id, Math.min(memberCount, effectiveMemberCapacity(cap, guestCount)) + guestCount]
+    }),
+  )
 }
 
 export default async function DashboardPage() {
@@ -103,37 +131,8 @@ export default async function DashboardPage() {
               </Link>
             </div>
 
-            {recruiting.rows.length === 0 ? (
-              <p className="mt-4 text-sm text-subtle">
-                {recruiting.count > 0 ? `모집 중 ${recruiting.count}건` : '지금 모집 중인 내전이 없어요.'}
-              </p>
-            ) : (
-              <ul className="-mx-3 mt-3 space-y-1">
-                {recruiting.rows.map((game) => (
-                  <li key={game.id}>
-                    <Link href={`/custom-games/${game.id}`} className={`${LIST_ITEM} group min-h-[56px]`}>
-                      <span className={`${LIST_THUMB} text-xs font-black text-brand-ink`} aria-hidden>
-                        {gameKindLabel(game.game_kind, game.game_kind_label).slice(0, 2)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold text-fg">{game.title}</span>
-                        <span className="mt-0.5 block truncate text-xs text-subtle">
-                          {gameKindLabel(game.game_kind, game.game_kind_label)}
-                          {' · '}
-                          {game.scheduled_at ? formatKstShort(game.scheduled_at) : '일정 미정'}
-                          {game.capacity ? ` · 정원 ${game.capacity}명` : ''}
-                        </span>
-                      </span>
-                      <span className={`${ICON_BTN_ROUND} group-hover:bg-brand group-hover:text-white`} aria-hidden>
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="m9 6 6 6-6 6" />
-                        </svg>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* 실시간 갱신은 Client Island 가 맡는다. 초기값은 이 ISR 렌더의 공개 데이터. */}
+            <HomeRecruitingGames initialRows={recruiting.rows} initialCount={recruiting.count} />
           </section>
 
           <div className="flex flex-col gap-2">

@@ -31,10 +31,17 @@ import {
   positionLabel,
   effectiveStatusBadgeClass,
   effectiveStatusLabel,
+  isQuickGame,
   isRecruitClosed,
+  quickGameState,
   toKstDateInput,
   toKstTimeInput,
 } from '@/lib/customGames/display'
+import { useCustomGamesRealtime } from '@/app/custom-games/_components/useCustomGamesRealtime'
+import { useGamePresence } from '@/app/custom-games/_components/useGamePresence'
+import { useNow } from '@/app/custom-games/_components/useNow'
+import LiveToast from '@/app/custom-games/_components/LiveToast'
+import { QuickLiveBadge, quickCountdownText } from '@/app/custom-games/_components/QuickLiveBadge'
 import {
   ALERT,
   BTN_BASE,
@@ -42,6 +49,7 @@ import {
   BTN_ON_HERO,
   BTN_ON_HERO_GHOST,
   BTN_PRIMARY,
+  BTN_SM_GHOST,
   CARD,
   CONTAINER,
   H2,
@@ -220,10 +228,21 @@ export default function CustomGameDetailPage() {
   const hasGameRef = useRef(false)
   const reqSeqRef = useRef(0)
 
-  const loadDetail = useCallback(async () => {
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null)
+  const dismissToast = useCallback(() => setToast(null), [])
+  // 직전 응답의 참가자 id 집합. 라이브 재조회 diff(토스트·좌석 등장 애니메이션) 기준.
+  const prevParticipantIdsRef = useRef<Set<string> | null>(null)
+  const [newSeatIds, setNewSeatIds] = useState<Set<string>>(new Set())
+
+  /**
+   * silent: 라이브 재조회 — "갱신 중" 칩·오류 알림을 띄우지 않는다(R3). 404/403(삭제·권한 상실)만 화면에 반영.
+   * live: 직전 응답과 participant id 를 비교해 남의 신규 참가를 토스트로 알린다(내 참가 제외).
+   */
+  const loadDetail = useCallback(async (opts?: { silent?: boolean; live?: boolean }) => {
+    const silent = opts?.silent ?? false
     const seq = ++reqSeqRef.current
     const isRefresh = hasGameRef.current
-    if (isRefresh) setRefreshing(true)
+    if (isRefresh) { if (!silent) setRefreshing(true) }
     else setLoading(true)
     try {
       // 세션 의존(can_manage 등) 데이터라 브라우저 캐시가 stale 권한을 재사용하지 않도록 no-store.
@@ -235,7 +254,7 @@ export default function CustomGameDetailPage() {
         const message = body.error ?? '로드 실패'
         // 재조회 중 일시 오류(5xx 등)는 보고 있던 화면을 지우지 않는다. 삭제·권한 상실만 화면을 내린다.
         if (isRefresh && res.status !== 404 && res.status !== 403) {
-          showMsg('error', message)
+          if (!silent) showMsg('error', message)
           return
         }
         hasGameRef.current = false
@@ -243,11 +262,32 @@ export default function CustomGameDetailPage() {
         setGame(null)
         return
       }
+      const nextConfirmed = (body.confirmed ?? []) as MemberParticipant[]
+      const nextWaitlist = (body.waitlist ?? []) as MemberParticipant[]
+      const nextIds = new Set([...nextConfirmed, ...nextWaitlist].map((p) => p.id))
+      const prevIds = prevParticipantIdsRef.current
+      if (prevIds && isRefresh) {
+        const myId = (body.my_participation as MyParticipation)?.id ?? null
+        const added = [...nextConfirmed, ...nextWaitlist].filter((p) => !prevIds.has(p.id) && p.id !== myId)
+        setNewSeatIds(new Set(nextConfirmed.filter((p) => !prevIds.has(p.id)).map((p) => p.id)))
+        if (opts?.live && added.length > 0) {
+          setToast({
+            id: Date.now(),
+            message:
+              added.length === 1
+                ? `${added[0].member_name}님이 방금 참가했어요`
+                : `${added[0].member_name}님 외 ${added.length - 1}명이 방금 참가했어요`,
+          })
+        }
+      } else {
+        setNewSeatIds(new Set())
+      }
+      prevParticipantIdsRef.current = nextIds
       hasGameRef.current = true
       setLoadError(null)
       setGame(body.game)
-      setConfirmedList(body.confirmed ?? [])
-      setWaitlist(body.waitlist ?? [])
+      setConfirmedList(nextConfirmed)
+      setWaitlist(nextWaitlist)
       setGuests(body.guests ?? [])
       setLolTeams(body.lol_teams ?? [])
       setCanManage(Boolean(body.can_manage))
@@ -255,7 +295,7 @@ export default function CustomGameDetailPage() {
       setMigrationRequired(Boolean(body.migration_required))
     } catch {
       if (seq !== reqSeqRef.current) return
-      if (isRefresh) showMsg('error', '새로고침 중 오류가 발생했습니다')
+      if (isRefresh) { if (!silent) showMsg('error', '새로고침 중 오류가 발생했습니다') }
       else setLoadError('알 수 없는 오류가 발생했습니다')
     } finally {
       if (seq === reqSeqRef.current) {
@@ -268,21 +308,71 @@ export default function CustomGameDetailPage() {
   // loadDetail 은 gameId 가 바뀔 때만 새로 만들어진다 — 다른 내전으로 이동하면 첫 로드로 취급한다.
   useEffect(() => {
     hasGameRef.current = false
+    prevParticipantIdsRef.current = null
     void loadDetail()
   }, [loadDetail])
+
+  // ── 라이브(Realtime 재조회 트리거) ─────────────────────────────────
+  // 관리자가 팀 배정을 드래그 중이면(저장 전) 재조회가 draft 를 리셋하므로 보류하고 버튼으로 알린다(R2).
+  const lolDirtyRef = useRef(false)
+  const [pendingLive, setPendingLive] = useState(false)
+  const liveReload = useCallback(async () => {
+    if (lolDirtyRef.current) {
+      setPendingLive(true)
+      return
+    }
+    await loadDetail({ silent: true, live: true })
+  }, [loadDetail])
+  useCustomGamesRealtime({ scope: 'game', gameId }, liveReload, { enabled: Boolean(gameId) })
+  const viewerCount = useGamePresence(gameId)
+
+  const applyPendingLive = async () => {
+    lolDirtyRef.current = false
+    setPendingLive(false)
+    await loadDetail({ silent: true })
+  }
+
+  const handleLolDraftChange = useCallback((next: LolTeamDraft) => {
+    lolDirtyRef.current = true
+    setLolDraft(next)
+  }, [])
+  const handleLolGuestsChange = useCallback((next: LolGuestCard[]) => {
+    lolDirtyRef.current = true
+    setLolPoolGuests(next)
+  }, [])
 
   const isTft = game?.game_kind === 'tft'
   const isTeam = isTft && game?.game_type === 'team'
   const isLol = game?.game_kind === 'lol'
   const isRift = isLol && game?.lol_mode === 'rift'
   const isClosed = game?.status === 'ended' || game?.status === 'cancelled'
+
+  // 번개·10분 이내 시작이면 1초, 시작 전이면 30초, 종료면 tick 정지.
+  const scheduledMs = game?.scheduled_at ? Date.parse(game.scheduled_at) : null
+  const [tickMs, setTickMs] = useState<number | null>(30_000)
+  const now = useNow(tickMs)
+  useEffect(() => {
+    let next: number | null = 30_000
+    if (!game || isClosed) next = null
+    else if (now !== null && scheduledMs !== null) {
+      const diff = scheduledMs - now
+      if (diff <= 0) next = game.status === 'recruiting' ? 30_000 : null
+      else if (isQuickGame(game) || diff <= 10 * 60 * 1000) next = 1000
+    }
+    if (next !== tickMs) setTickMs(next)
+  }, [game, isClosed, now, scheduledMs, tickMs])
+  const nowMs = now ?? undefined
+
   // 예정 시각이 지난 recruiting 은 "마감"으로 보고 참가/취소 버튼을 감춘다(로스터 고정).
   const isRecruiting =
-    game?.status === 'recruiting' && !isRecruitClosed(game.status, game.scheduled_at)
+    game?.status === 'recruiting' && !isRecruitClosed(game.status, game.scheduled_at, nowMs)
 
   // ── 롤 팀 드래프트 초기화 ──────────────────────────────────────────
   useEffect(() => {
     if (!isLol) return
+    // draft 를 서버 값으로 다시 맞추므로 dirty·보류 중인 라이브 갱신도 해소된다(저장 0건 경로 포함).
+    lolDirtyRef.current = false
+    setPendingLive(false)
     // 저장된 배정을 다시 불러오면 미배치 외부인 풀은 비운다(저장된 외부인은 전부 슬롯에 있다).
     setLolPoolGuests([])
     if (lolTeams.length === 0) {
@@ -487,6 +577,8 @@ export default function CustomGameDetailPage() {
       const body = await res.json()
       if (!res.ok) { setLolTeamError(body.error ?? '저장 실패'); return }
       showMsg('success', '팀 배정이 저장되었습니다')
+      lolDirtyRef.current = false
+      setPendingLive(false)
       await loadDetail()
     } catch { setLolTeamError('저장 중 오류가 발생했습니다') }
     finally { setSavingLolTeams(false) }
@@ -503,6 +595,8 @@ export default function CustomGameDetailPage() {
       })
       const body = await res.json()
       if (!res.ok) { setLolTeamError(body.error ?? '랜덤 배정 실패'); return }
+      lolDirtyRef.current = false
+      setPendingLive(false)
       await loadDetail()
     } catch { setLolTeamError('랜덤 배정 중 오류가 발생했습니다') }
     finally { setSavingLolTeams(false) }
@@ -636,7 +730,13 @@ export default function CustomGameDetailPage() {
   // ── 렌더 ─────────────────────────────────────────────────────────
 
   const remainingSeats = game ? Math.max(0, game.capacity - seatsTaken) : 0
-  const timeUntil = game && !isClosed ? formatTimeUntil(game.scheduled_at) : null
+  // now 가 생기기 전(첫 렌더)에는 시간 의존 표시를 생략한다.
+  const timeUntil = game && !isClosed && now !== null ? formatTimeUntil(game.scheduled_at, now) : null
+  const quickState = game && now !== null ? quickGameState(game, seatsTaken, game.capacity, now) : null
+  const quickCountdown =
+    game && quickState === 'live' && now !== null
+      ? quickCountdownText(game.scheduled_at, seatsTaken, game.capacity, now)
+      : null
   const fillPercent = game && game.capacity > 0 ? Math.min(100, (seatsTaken / game.capacity) * 100) : 0
 
   const heroStats = game
@@ -647,8 +747,14 @@ export default function CustomGameDetailPage() {
       ]
     : []
 
-  const heroAction = game && (refreshing || myParticipation || (!isClosed && isRecruiting)) ? (
+  const heroAction = game && (refreshing || myParticipation || (!isClosed && isRecruiting) || viewerCount !== null) ? (
     <>
+      {viewerCount !== null && viewerCount > 0 && (
+        <span className={HERO_CHIP}>
+          <span className="live-pulse h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+          지금 {viewerCount}명이 보는 중
+        </span>
+      )}
       {refreshing && (
         <span role="status" aria-label="새로고침 중" className={HERO_CHIP}>
           <Spinner size={3} /> 갱신 중
@@ -754,7 +860,15 @@ export default function CustomGameDetailPage() {
                   {isLol && lolModeBadge(game.lol_mode) && (
                     <span className={HERO_CHIP}>{lolModeBadge(game.lol_mode)}</span>
                   )}
-                  <span className={HERO_CHIP}>{effectiveStatusLabel(game.status, game.scheduled_at)}</span>
+                  {quickState === 'live' && (
+                    <span className={HERO_CHIP}>
+                      <span className="live-pulse h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+                      LIVE · 지금 바로
+                    </span>
+                  )}
+                  <span className={HERO_CHIP}>
+                    {quickState === 'expired' ? '만료' : effectiveStatusLabel(game.status, game.scheduled_at, nowMs)}
+                  </span>
                 </>
               }
               title={game.title}
@@ -818,10 +932,13 @@ export default function CustomGameDetailPage() {
                       </span>
                       <div className="min-w-0">
                         <dt className="text-xs font-semibold text-subtle">상태</dt>
-                        <dd className="mt-0.5">
-                          <Badge className={effectiveStatusBadgeClass(game.status, game.scheduled_at)}>
-                            {effectiveStatusLabel(game.status, game.scheduled_at)}
-                          </Badge>
+                        <dd className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <QuickLiveBadge state={quickState} />
+                          {quickState !== 'expired' && (
+                            <Badge className={effectiveStatusBadgeClass(game.status, game.scheduled_at, nowMs)}>
+                              {effectiveStatusLabel(game.status, game.scheduled_at, nowMs)}
+                            </Badge>
+                          )}
                         </dd>
                       </div>
                     </div>
@@ -845,6 +962,9 @@ export default function CustomGameDetailPage() {
                           ? `${remainingSeats}자리 남음`
                           : `정원 마감${waitlist.length > 0 ? ` · 대기 ${waitlist.length}명` : ''}`}
                       </p>
+                      {quickCountdown && (
+                        <p className="mt-1 text-sm font-bold text-danger-ink" aria-live="off">{quickCountdown}</p>
+                      )}
                     </div>
                     {canManage && !isClosed && (
                       <button
@@ -869,7 +989,7 @@ export default function CustomGameDetailPage() {
                     <ul className="mt-5 grid grid-cols-5 gap-x-2 gap-y-4 sm:grid-cols-10" aria-label="좌석">
                       {confirmedList.map((p) => (
                         <li key={p.id} className="flex min-w-0 flex-col items-center gap-1.5" title={p.member_name}>
-                          <span className="relative flex h-11 w-11 rounded-full ring-2 ring-brand/30">
+                          <span className={`relative flex h-11 w-11 rounded-full ring-2 ring-brand/30 ${newSeatIds.has(p.id) ? 'seat-pop' : ''}`}>
                             <MemberAvatar
                               src={p.avatar_url}
                               name={p.member_name}
@@ -1073,14 +1193,22 @@ export default function CustomGameDetailPage() {
                 {/* ── 롤 내전: 팀/포지션 배정 ───── */}
                 {isLol && (
                   <>
+                    {pendingLive && canManage && !isClosed && (
+                      <div className={`${ALERT.warn} flex flex-wrap items-center justify-between gap-2`} role="status">
+                        <span>새 변경사항이 있어요 · 저장하지 않은 배치는 새로고침 시 사라집니다</span>
+                        <button type="button" onClick={applyPendingLive} className={BTN_SM_GHOST}>
+                          새로고침
+                        </button>
+                      </div>
+                    )}
                     {canManage && !isClosed ? (
                       <LolTeamAssignPanel
                         participants={lolParticipants}
                         guests={lolPoolGuests}
                         mode={isRift ? 'rift' : 'aram'}
                         draft={lolDraft}
-                        onChange={setLolDraft}
-                        onGuestsChange={setLolPoolGuests}
+                        onChange={handleLolDraftChange}
+                        onGuestsChange={handleLolGuestsChange}
                         onKickMember={(key) => {
                           const p = confirmedList.find((x) => x.member_id === key)
                           if (p) handleKick(p)
@@ -1210,6 +1338,8 @@ export default function CustomGameDetailPage() {
         )}
       </div>
     </main>
+
+      <LiveToast toast={toast} onDismiss={dismissToast} />
 
       {/* 수정 모달 — 서버가 권한을 강제하므로 이 노출 제어는 UX 목적이다 */}
       {showEdit && game && (

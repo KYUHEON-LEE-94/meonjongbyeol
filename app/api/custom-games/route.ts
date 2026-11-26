@@ -28,6 +28,7 @@ import {
   parseGameKind,
   parseScheduledAt,
   parseTitle,
+  quickScheduledAt,
 } from '@/lib/customGames/constants'
 
 export const dynamic = 'force-dynamic'
@@ -149,20 +150,37 @@ export async function GET() {
     guestCountByGame.set(g.custom_game_id, (guestCountByGame.get(g.custom_game_id) ?? 0) + 1)
   })
 
-  const hostIds = [...new Set(games.map((g) => g.host_member_id).filter((v): v is string => !!v))]
-  const { data: hostRows } = await supabaseAdmin
-    .from('members')
-    .select('id, member_name')
-    .in('id', hostIds.length > 0 ? hostIds : ['__none__'])
-  const hostNameById = new Map((hostRows ?? []).map((m) => [m.id, m.member_name]))
-
-  const enriched = games.map((game) => {
+  // 라이브 토스트용 "최근 참가자"는 활성 내전만 계산한다. 이름 조회는 주최자 조회와 한 번에 합친다.
+  const activeStatuses = ACTIVE_STATUSES as readonly string[]
+  const splitByGame = new Map<string, { confirmed: ParticipantRow[]; waitlist: ParticipantRow[] }>()
+  const latestByGame = new Map<string, ParticipantRow>()
+  games.forEach((game) => {
     const rows = participantsByGame.get(game.id) ?? []
     const guestCount = guestCountByGame.get(game.id) ?? 0
-    const { confirmed, waitlist } = splitParticipants(
-      rows,
-      effectiveMemberCapacity(game.capacity, guestCount),
-    )
+    const split = splitParticipants(rows, effectiveMemberCapacity(game.capacity, guestCount))
+    splitByGame.set(game.id, split)
+    if (!activeStatuses.includes(game.status)) return
+    const ordered = [...split.confirmed, ...split.waitlist]
+    const latest = ordered[ordered.length - 1]
+    if (latest) latestByGame.set(game.id, latest)
+  })
+
+  const nameIds = [
+    ...new Set([
+      ...games.map((g) => g.host_member_id).filter((v): v is string => !!v),
+      ...[...latestByGame.values()].map((p) => p.member_id),
+    ]),
+  ]
+  const { data: nameRows } = await supabaseAdmin
+    .from('members')
+    .select('id, member_name')
+    .in('id', nameIds.length > 0 ? nameIds : ['__none__'])
+  const nameById = new Map((nameRows ?? []).map((m) => [m.id, m.member_name]))
+
+  const enriched = games.map((game) => {
+    const guestCount = guestCountByGame.get(game.id) ?? 0
+    const { confirmed, waitlist } = splitByGame.get(game.id) ?? { confirmed: [], waitlist: [] }
+    const latest = latestByGame.get(game.id)
 
     const ordered = [...confirmed, ...waitlist]
     const myIndex = viewerMemberId
@@ -172,7 +190,15 @@ export async function GET() {
     return {
       ...game,
       host_member_name: game.host_member_id
-        ? hostNameById.get(game.host_member_id) ?? '알 수 없음'
+        ? nameById.get(game.host_member_id) ?? '알 수 없음'
+        : null,
+      // member_id 는 노출하지 않는다 — 토스트 문구에 필요한 이름·시각·본인 여부만.
+      latest_joiner: latest
+        ? {
+            name: nameById.get(latest.member_id) ?? '알 수 없음',
+            joined_at: latest.joined_at,
+            is_me: viewerMemberId !== null && latest.member_id === viewerMemberId,
+          }
         : null,
       guest_count: guestCount,
       confirmed_count: confirmed.length,
@@ -226,7 +252,11 @@ export async function POST(req: Request) {
   const capacity = parseCapacity(body.capacity, kind.value.game_kind, 'solo')
   if (!capacity.ok) return NextResponse.json({ error: capacity.message }, { status: 400 })
 
-  const scheduledAt = parseScheduledAt(body.scheduled_date, body.scheduled_time)
+  // 번개('지금 바로')는 시각을 서버가 정한다 — 클라는 quick_start_min 만 보낸다.
+  const quick = body.quick === true
+  const scheduledAt = quick
+    ? quickScheduledAt(body.quick_start_min)
+    : parseScheduledAt(body.scheduled_date, body.scheduled_time)
   if (!scheduledAt.ok) return NextResponse.json({ error: scheduledAt.message }, { status: 400 })
 
   const { count: activeCount, error: countError } = await supabaseAdmin
@@ -291,6 +321,21 @@ export async function POST(req: Request) {
     await supabaseAdmin.from('custom_games').delete().eq('id', game.id)
     return NextResponse.json({ error: participantError.message }, { status: 500 })
   }
+
+  // 번개는 생성 웹훅이 곧 "임박" 알림이다. 30분 창 디스코드 리마인더가 몇 분 뒤 중복 발송되지 않도록
+  // reminder_sent_at 을 선점한다. 20260734 미적용(컬럼 부재) 등 실패는 무시한다 — 생성은 이미 성공했다.
+  // push_reminder_sent_at(개인 기기 푸시)은 건드리지 않는다.
+  if (quick) {
+    try {
+      const { error: claimError } = await supabaseAdmin
+        .from('custom_games')
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq('id', game.id)
+      if (claimError) console.warn('[custom-games] 번개 리마인더 선점 실패', claimError.code ?? claimError.message)
+    } catch (e) {
+      console.warn('[custom-games] 번개 리마인더 선점 실패', e instanceof Error ? e.message : '오류 발생')
+    }
+  }
   // 응답 후 디스코드 알림(after: 생성 응답을 지연시키지 않고, 실패해도 생성에 영향 없음).
   const kv = kind.value
   const hostName = viewer.member.member_name
@@ -302,7 +347,7 @@ export async function POST(req: Request) {
         : gameKindLabel(kv.game_kind, kv.game_kind_label)
     await sendDiscordWebhook([
       {
-        title: `🎮 새 내전 모집 — ${title.value}`,
+        title: quick ? `⚡ 지금 바로 — ${title.value}` : `🎮 새 내전 모집 — ${title.value}`,
         url: `${origin}/custom-games/${game.id}`,
         color: DISCORD_COLOR[kv.game_kind] ?? DISCORD_COLOR.etc,
         fields: [

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { CREATABLE_GAME_KINDS, type CreatableGameKind, type GameKind, type GameStatus, type LolMode, type LolPosition } from './constants'
+import { CREATABLE_GAME_KINDS, QUICK_WINDOW_MS, SCHEDULE_PAST_GRACE_MS, type CreatableGameKind, type GameKind, type GameStatus, type LolMode, type LolPosition } from './constants'
 
 /**
  * 클라이언트 컴포넌트에서도 쓰는 표시 전용 헬퍼.
@@ -167,19 +167,31 @@ export function statusBadgeClass(status: string): string {
  * recruiting 인데 예정 시각이 이미 지났으면 모집이 닫힌 것으로 보고 "마감"으로 표시하고
  * 참가 버튼을 감춘다. DB status 는 recruiting 그대로 둔다(주최자가 수동 종료 가능).
  */
-export function isRecruitClosed(status: string, scheduledAt: string | null | undefined): boolean {
+export function isRecruitClosed(
+  status: string,
+  scheduledAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
   if (status !== 'recruiting') return false
   const d = toDate(scheduledAt)
-  return d ? d.getTime() <= Date.now() : false
+  return d ? d.getTime() <= now : false
 }
 
-export function effectiveStatusLabel(status: string, scheduledAt: string | null | undefined): string {
-  return isRecruitClosed(status, scheduledAt) ? '마감' : statusLabel(status)
+export function effectiveStatusLabel(
+  status: string,
+  scheduledAt: string | null | undefined,
+  now: number = Date.now(),
+): string {
+  return isRecruitClosed(status, scheduledAt, now) ? '마감' : statusLabel(status)
 }
 
-export function effectiveStatusBadgeClass(status: string, scheduledAt: string | null | undefined): string {
+export function effectiveStatusBadgeClass(
+  status: string,
+  scheduledAt: string | null | undefined,
+  now: number = Date.now(),
+): string {
   // 마감은 종료와 같은 뉴트럴 톤을 쓴다.
-  return isRecruitClosed(status, scheduledAt) ? STATUS_BADGE.ended : statusBadgeClass(status)
+  return isRecruitClosed(status, scheduledAt, now) ? STATUS_BADGE.ended : statusBadgeClass(status)
 }
 
 // 표시 타임존은 뷰어 브라우저와 무관하게 항상 KST로 고정한다.
@@ -265,4 +277,48 @@ export function formatTimeUntil(iso: string | null | undefined, now: number = Da
 
 export function todayKstDate(): string {
   return DATE_INPUT_FMT.format(new Date())
+}
+
+/**
+ * '지금 바로'(번개) 파생 판정 — 새 컬럼이 없다.
+ * scheduled_at - created_at 이 [-유예, 30분 + 60초] 안이면 번개로 본다.
+ * 트레이드오프: 일반 폼으로 30분 이내 일정을 잡아도 번개로 표시되고, 일정 수정 시 분류가 바뀐다(수용).
+ */
+export function isQuickGame(game: { created_at?: string | null; scheduled_at?: string | null }): boolean {
+  const created = toDate(game.created_at)
+  const scheduled = toDate(game.scheduled_at)
+  if (!created || !scheduled) return false
+  const gap = scheduled.getTime() - created.getTime()
+  return gap >= -SCHEDULE_PAST_GRACE_MS && gap <= QUICK_WINDOW_MS + 60_000
+}
+
+export type QuickGameState = 'live' | 'expired' | null
+
+/**
+ * 번개 표시 상태(파생 전용, status UPDATE 없음).
+ * live = 모집 중 + 시작 전 / expired = 모집 중 + 시작 시각 경과 + 정원 미달(정원이 찼으면 기존 '마감').
+ */
+export function quickGameState(
+  game: { status: string; created_at?: string | null; scheduled_at?: string | null },
+  taken: number,
+  capacity: number,
+  now: number,
+): QuickGameState {
+  if (game.status !== 'recruiting' || !isQuickGame(game)) return null
+  const scheduled = toDate(game.scheduled_at)
+  if (!scheduled) return null
+  if (now < scheduled.getTime()) return 'live'
+  return taken < capacity ? 'expired' : null
+}
+
+/** 번개 카운트다운: "M분 후 시작" / 1분 미만 "S초 후 시작" / 지났으면 null. */
+export function formatQuickCountdown(iso: string | null | undefined, now: number): string | null {
+  const d = toDate(iso)
+  if (!d) return null
+  const diff = d.getTime() - now
+  if (diff <= 0) return null
+  // 59.x초는 ceil 이 60 이 되므로 '1분'으로 보인다("60초 후 시작" 방지).
+  const sec = Math.ceil(diff / 1000)
+  if (sec < 60) return `${sec}초 후 시작`
+  return `${Math.ceil(diff / 60_000)}분 후 시작`
 }

@@ -55,6 +55,7 @@ app/
     ui/EmptyState.tsx           # 빈 상태 카드
     home/HomeNews.tsx           # 새 소식 탭(롤 패치 노트 · 스팀 할인)
     home/DashboardDiscordTop5.tsx  # 최근 7일 음성 TOP5 (순수 컴포넌트)
+    home/HomeRecruitingGames.tsx   # 'use client' 홈 '모집 중 내전' Island. 초기값=ISR props, Realtime 이벤트 때만 재조회
   admin/                        # 관리자 전용 (인증 필요)
     layout.tsx                  # 관리자 사이드바 레이아웃
     members/
@@ -69,6 +70,10 @@ app/
     SteamPresence.tsx           # "지금 스팀 접속 중" (Client Component, 60초 폴링 · 실시간)
   custom-games/                 # 내전 (목록·모집 폼 / [id] 상세)
     _components/SteamGamePicker.tsx  # 스팀 게임 선택(보유 게임 목록) + 직접 입력 폴백 (Client)
+    _components/useCustomGamesRealtime.ts  # Realtime postgres_changes → 재조회 트리거 훅(인스턴스 고유 topic)
+    _components/useGamePresence.ts  # Presence "지금 N명이 보는 중" (고정 topic + leaving Map)
+    _components/useNow.ts       # 마운트 후 now tick (하이드레이션 안전)
+    _components/LiveToast.tsx · QuickLiveBadge.tsx · SeatBar.tsx  # 라이브 토스트 / 번개 LIVE·만료 배지 / 인원 바
   login/                        # 사용자 로그인 (Discord OAuth 버튼)
   auth/callback/route.ts        # OAuth 코드 교환 + discord_id ↔ user_id 연결
   profile/                      # 프로필 이미지·프레임 편집 + 라이엇 ID 자가 등록
@@ -697,6 +702,30 @@ rounds/teams/guests API 와 `rejectNonTftGame`은 삭제됐다(→ 404). 상세 
   메인 patch 와 합치지 않고 컬럼별 별도 update + `isMissingColumnError` 무시 — 미적용 환경에서 일정 변경이 깨지지 않게.
 - 30분 디스코드 임박 알림도 웹 푸시와 같이 `ACTIVE_STATUSES`(모집 중 + 진행 중)를 대상으로 한다.
 
+### 내전 라이브 (Realtime · Presence · 번개) ★
+
+마이그레이션: `scripts/sql/20260912_custom_game_realtime.sql` (publication 에 `custom_games`·`custom_game_participants`만 추가, 멱등).
+미적용·WS 차단이어도 이벤트가 안 올 뿐 화면은 기존과 동일하다(최초 fetch 경로 무변경). "실시간 연결됨"을 단정 표시하지 않는다.
+
+- **postgres_changes 는 재조회 트리거로만 쓴다.** payload 로 상태를 패치하지 않는다 — 대기열 파생·`can_manage`·`my_participation`은
+  서버 API 만 계산한다. 디바운스 400ms + 지터 0~600ms, 실행 중 이벤트는 1회로 합치고, 탭이 숨겨져 있으면 visible 때 1회, 재연결 시 1회 catch-up.
+- **topic 재사용 금지(R1).** realtime-js 는 같은 topic 의 기존(leaving 중) 채널을 돌려준다. postgres_changes 는 인스턴스 고유 topic,
+  Presence(`custom-game:{id}` 고정)는 직전 `removeChannel` 완료를 모듈 Map 으로 기다린다.
+- **라이브 재조회는 silent(R3).** 스피너·"갱신 중" 칩·오류 알림을 띄우지 않는다(404/403 만 화면 반영).
+- **롤 팀 배정 draft 보호(R2).** 관리자가 저장 전 드래그 중이면(`lolDirtyRef`) 재조회를 보류하고 "새 변경사항 · 새로고침" 버튼만 띄운다.
+- `custom_game_guests`·`custom_game_teams` 는 정책 0개(B 그룹)라 publication 에 넣지 않는다 → 게스트·팀 변경은 실시간 미반영(의도된 한계).
+  두 테이블에 공개 select 정책을 열지 말 것. Realtime 을 위해 쓰기 정책을 추가하지 말 것.
+- **Presence payload 는 `{ t }` 하나.** presence key 는 마운트마다 새 탭 id(sessionStorage 금지). 개인정보 금지.
+- 목록 GET 의 `latest_joiner: { name, joined_at, is_me }`(활성 내전만)는 토스트용이며 **member_id 를 노출하지 않는다.**
+- **홈 Island(R8):** `app/page.tsx`는 ISR 그대로(세션 금지) — 공개 인원 집계만 props 로 넘긴다. 시간 의존 UI(LIVE·카운트다운)는
+  `useNow()`가 non-null(마운트 후)일 때만 렌더한다. 마운트 시 추가 조회 없음.
+
+**'지금 바로'(번개) — 새 컬럼 없이 파생한다.** `isQuickGame()` = `scheduled_at - created_at ∈ [-10분, 30분+60초]`.
+- 클라는 `{ quick: true, quick_start_min }`만 보낸다(5·10·20·30, 화이트리스트). **시각은 서버가** `quickScheduledAt()`으로 now+N분(분 올림).
+- LIVE/만료는 표시 파생뿐(`quickGameState`) — status UPDATE 없음. 정원이 차면 만료 대신 기존 '마감'.
+- 번개 생성 시 `reminder_sent_at`을 선점(에러 무시)해 30분 디스코드 임박 알림 중복을 막는다. `push_reminder_sent_at`은 건드리지 않는다.
+- 트레이드오프: 일반 폼으로 30분 이내 일정도 번개로 표시되고, 일정 수정 시 분류가 바뀐다(수용).
+
 ### 대기열은 저장하지 않고 순번에서 파생한다 ★
 
 `custom_game_participants`에 `status('confirmed'|'waitlisted')` 컬럼을 **만들지 않는다.**
@@ -899,3 +928,4 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
 | 2026-10-08 | 동기화·내전 백엔드 정비 | `lib/sync/*`, `sync-all`, `members/[id]/sync`, `custom-games`, `notify-reminders` | TOP5 반복 발송·재시도 prev 오염·동시 실행·리마인더 재무장·목록 무제한 조회 |
 | 2026-11-25 | 먼종별 리모델링 | 전체 (TFT·명예의 전당·시즌·주간 리포트 삭제, `lib/riot/*`, `lib/sync/doSyncMember.ts`, 홈·`/discord`·`SiteNav`) | 종겜방 '먼종별'로 리브랜딩, LoL 키 단일화(lol_puuid), 홈을 내전·스팀·디스코드 중심으로 재구성. DB DROP 없음 |
 | 2026-11-25 | 디자인 리뉴얼(보라 다크) | globals.css, styles.ts, AppShell·nav/*, HeroBanner, 전 페이지 | Unity Dashboard 톤, PC 사이드바, 캐릭터 히어로 배너. 로직·API·DB 무변경 |
+| 2026-11-27 | 내전 라이브 MVP | `useCustomGamesRealtime`·`useGamePresence`·`HomeRecruitingGames`, `custom-games` 목록·상세, `20260912_custom_game_realtime.sql` | Realtime 재조회 트리거 · 번개(파생) · Presence 시청자 수. 컬럼 추가 없음 |

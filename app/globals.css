@@ -395,3 +395,18 @@ option {
 @media (prefers-reduced-motion: reduce) {
   .frame-spin { animation: none; }
 }
+
+/* 내전 라이브: LIVE 점 펄스 · 새 좌석/토스트 등장. 색은 기존 토큰 클래스가 맡는다. */
+.live-pulse { animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+.seat-pop { animation: seat-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes seat-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse, .seat-pop { animation: none; }
+}

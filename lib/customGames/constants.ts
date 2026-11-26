@@ -241,3 +241,29 @@ export function parseGameType(raw: unknown): ParseResult<'solo' | 'team'> {
   }
   return { ok: true, value }
 }
+
+/**
+ * '지금 바로'(번개) 내전. 새 컬럼 없이 created_at ↔ scheduled_at 간격으로 파생한다
+ * (display.ts isQuickGame). 시작 시각은 클라가 아니라 서버가 now + N분으로 정한다.
+ */
+export const QUICK_START_OPTIONS_MIN = [5, 10, 20, 30] as const
+export type QuickStartMin = (typeof QUICK_START_OPTIONS_MIN)[number]
+export const DEFAULT_QUICK_START_MIN: QuickStartMin = 10
+export const QUICK_WINDOW_MS = 30 * 60 * 1000
+
+export function isQuickStartMin(value: unknown): value is QuickStartMin {
+  return typeof value === 'number' && (QUICK_START_OPTIONS_MIN as readonly number[]).includes(value)
+}
+
+/** 번개 시작 시각(ISO). now + N분을 분 단위로 올림한다. 화이트리스트 밖(0·31·문자열 등)은 거부. */
+export function quickScheduledAt(raw: unknown): ParseResult<string> {
+  if (!isQuickStartMin(raw)) {
+    return { ok: false, message: `시작까지 시간은 ${QUICK_START_OPTIONS_MIN.join('·')}분 중 하나여야 합니다` }
+  }
+  const now = Date.now()
+  const at = Math.ceil((now + raw * 60_000) / 60_000) * 60_000
+  if (at < now - SCHEDULE_PAST_GRACE_MS || at > now + SCHEDULE_MAX_AHEAD_MS) {
+    return { ok: false, message: '올바르지 않은 일정입니다' }
+  }
+  return { ok: true, value: new Date(at).toISOString() }
+}
