@@ -14,18 +14,21 @@ export async function GET(request: Request) {
   if (!admin.ok) return NextResponse.json({ error: '관리자만 가능합니다.' }, { status: 403, headers: NO_STORE })
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().slice(0, 50)
-  const parsedLimit = Number(url.searchParams.get('ledgerLimit') ?? '50')
-  const ledgerLimit = Number.isInteger(parsedLimit) && parsedLimit >= 1 && parsedLimit <= 200 ? parsedLimit : 50
+  const parsedSize = Number(url.searchParams.get('pageSize') ?? '20')
+  const pageSize = Number.isInteger(parsedSize) && parsedSize >= 10 && parsedSize <= 100 ? parsedSize : 20
+  const parsedPage = Number(url.searchParams.get('page') ?? '1')
+  const page = Number.isInteger(parsedPage) && parsedPage >= 1 && parsedPage <= 100_000 ? parsedPage : 1
+  const from = (page - 1) * pageSize
   // 유형 필터(선택). 없으면 전체(출석·내전·구매·명예의전당·관리자 등)를 다 보여준다.
   const KNOWN_REASONS = ['daily_login', 'custom_game_participation', 'cosmetic_purchase', 'shop_purchase', 'admin_adjustment', 'hall_of_fame']
   const reasonFilter = url.searchParams.get('reason')
   const reason = reasonFilter && KNOWN_REASONS.includes(reasonFilter) ? reasonFilter : null
 
-  let ledgerQuery = supabaseAdmin.from('point_ledger').select('id,member_id,amount,reason,description,balance_after,created_at,created_by').order('created_at', { ascending: false }).limit(ledgerLimit)
+  let ledgerQuery = supabaseAdmin.from('point_ledger').select('id,member_id,amount,reason,description,balance_after,created_at,created_by', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + pageSize - 1)
   if (reason) ledgerQuery = ledgerQuery.eq('reason', reason)
 
   const membersQuery = supabaseAdmin.from('members').select('id,member_name,status').eq('status', 'approved').order('member_name')
-  const [{ data: members, error: memberError }, { data: accounts, error: accountError }, { data: ledger, error: ledgerError }, { data: actors }] = await Promise.all([
+  const [{ data: members, error: memberError }, { data: accounts, error: accountError }, { data: ledger, error: ledgerError, count: ledgerCount }, { data: actors }] = await Promise.all([
     membersQuery,
     supabaseAdmin.from('point_accounts').select('member_id,balance'),
     ledgerQuery,
@@ -40,7 +43,12 @@ export async function GET(request: Request) {
   const balances = new Map((accounts ?? []).map((row) => [row.member_id, row.balance]))
   const names = new Map((members ?? []).map((row) => [row.id, row.member_name]))
   const actorNames = new Map((actors ?? []).filter((row) => row.user_id).map((row) => [row.user_id as string, row.display_name ?? '관리자']))
+  const total = ledgerCount ?? 0
   return NextResponse.json({
+    page,
+    page_size: pageSize,
+    total,
+    total_pages: Math.max(1, Math.ceil(total / pageSize)),
     members: (members ?? []).filter((row) => !q || row.member_name.toLocaleLowerCase('ko-KR').includes(q.toLocaleLowerCase('ko-KR'))).slice(0, 100).map((row) => ({ id: row.id, name: row.member_name, balance: balances.get(row.id) ?? 0 })),
     ledger: (ledger ?? []).map((row) => ({
       id: row.id,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmptyState from '@/app/components/ui/EmptyState'
-import { BADGE, BTN_DANGER, BTN_PRIMARY, CARD, H2, INPUT, LABEL, TABLE, TD, TH, TR } from '@/lib/ui/styles'
+import { BADGE, BTN_DANGER, BTN_PRIMARY, CARD, H2, INPUT, LABEL, PILL, PILL_ACTIVE, TABLE, TD, TH, TR } from '@/lib/ui/styles'
 import AdminPageHeader from '../_components/AdminPageHeader'
 import AdminStat from '../_components/AdminStat'
 
@@ -32,8 +32,9 @@ export default function PointsManager() {
   const [q,setQ]=useState(''); const [memberId,setMemberId]=useState(''); const [amount,setAmount]=useState(''); const [description,setDescription]=useState(''); const [requestId,setRequestId]=useState('')
   const [sign,setSign]=useState<1|-1>(1)
   const [reasonFilter,setReasonFilter]=useState('')
+  const [page,setPage]=useState(1); const [totalPages,setTotalPages]=useState(1); const [total,setTotal]=useState(0)
   const [message,setMessage]=useState(''); const [loading,setLoading]=useState(false)
-  const load=useCallback(async()=>{ const res=await fetch(`/api/admin/points?q=${encodeURIComponent(q)}${reasonFilter?`&reason=${reasonFilter}`:''}`,{cache:'no-store'}); const data:unknown=await res.json(); if(res.ok && data && typeof data==='object' && 'members' in data && 'ledger' in data){ const value=data as {members:Member[];ledger:Ledger[]}; setMembers(value.members);setLedger(value.ledger) } else setMessage('포인트 정보를 불러오지 못했습니다.') },[q,reasonFilter])
+  const load=useCallback(async()=>{ const res=await fetch(`/api/admin/points?q=${encodeURIComponent(q)}&page=${page}&pageSize=20${reasonFilter?`&reason=${reasonFilter}`:''}`,{cache:'no-store'}); const data:unknown=await res.json(); if(res.ok && data && typeof data==='object' && 'members' in data && 'ledger' in data){ const value=data as {members:Member[];ledger:Ledger[];page?:number;total?:number;total_pages?:number}; setMembers(value.members);setLedger(value.ledger);setTotal(value.total??value.ledger.length);setTotalPages(value.total_pages??1);if(value.page&&value.page!==page)setPage(value.page) } else setMessage('포인트 정보를 불러오지 못했습니다.') },[q,reasonFilter,page])
   useEffect(()=>{ const timer=setTimeout(()=>void load(),250);return()=>clearTimeout(timer)},[load])
   async function grant(){
     if(!memberId)return
@@ -56,9 +57,9 @@ export default function PointsManager() {
     <AdminPageHeader kicker="Points" title="포인트 관리" description="승인 멤버에게 운영 포인트를 지급하거나 차감합니다." />
 
     <div className="mb-6 grid grid-cols-3 gap-3">
-      <AdminStat label="표시 중인 내역" value={ledger.length.toLocaleString()} hint="최근 내역 기준" />
-      <AdminStat label="지급 합계" value={`+${totals.plus.toLocaleString()}P`} tone="brand" compact />
-      <AdminStat label="차감 합계" value={`${totals.minus.toLocaleString()}P`} tone={totals.minus<0?'danger':undefined} compact />
+      <AdminStat label="전체 내역" value={total.toLocaleString()} hint={`${page} / ${totalPages} 페이지`} />
+      <AdminStat label="이 페이지 지급" value={`+${totals.plus.toLocaleString()}P`} tone="brand" compact />
+      <AdminStat label="이 페이지 차감" value={`${totals.minus.toLocaleString()}P`} tone={totals.minus<0?'danger':undefined} compact />
     </div>
 
     <div className={`${CARD} mb-8 grid gap-4 p-5 sm:p-6 md:grid-cols-2`}>
@@ -76,10 +77,18 @@ export default function PointsManager() {
 
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div><h2 className={H2}>포인트 내역</h2><p className="mt-1 text-xs text-subtle">지급·차감 전체 로그</p></div>
-      <select aria-label="유형 필터" className={`${INPUT} w-auto! py-2!`} value={reasonFilter} onChange={e=>setReasonFilter(e.target.value)}>{REASON_OPTIONS.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+      <select aria-label="유형 필터" className={`${INPUT} w-auto! py-2!`} value={reasonFilter} onChange={e=>{setReasonFilter(e.target.value);setPage(1)}}>{REASON_OPTIONS.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
     </div>
     {ledger.length===0
       ? <EmptyState>내역이 없습니다.</EmptyState>
       : <div className={`${CARD} overflow-hidden`}><div className="overflow-x-auto"><table className={`${TABLE} min-w-[720px]`}><thead><tr className="bg-surface-2/60"><th className={TH}>멤버</th><th className={TH}>유형</th><th className={`${TH} text-right`}>증감</th><th className={TH}>사유</th><th className={`${TH} text-right`}>잔액</th><th className={TH}>처리</th><th className={TH}>일시</th></tr></thead><tbody>{ledger.map(row=><tr key={row.id} className={TR}><td className={`${TD} font-bold text-fg`}>{row.member_name}</td><td className={TD}><span className={REASON_STYLE[row.reason]??BADGE.neutral}>{REASON_LABEL[row.reason]??row.reason}</span></td><td className={`${TD} text-right font-bold tabular-nums ${row.amount>0?'text-brand-ink':'text-danger-ink'}`}>{row.amount>0?'+':''}{row.amount.toLocaleString()}P</td><td className={`${TD} text-muted`}>{row.description}</td><td className={`${TD} text-right tabular-nums text-fg`}>{row.balance_after.toLocaleString()}P</td><td className={`${TD} text-muted`}>{row.actor_name}</td><td className={`${TD} whitespace-nowrap text-xs tabular-nums text-subtle`}>{new Date(row.created_at).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div></div>}
+    {totalPages>1&&<nav aria-label="포인트 내역 페이지" className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+      <button type="button" className={`${PILL} min-h-9 px-4 disabled:opacity-40`} disabled={page<=1} onClick={()=>setPage(1)} aria-label="첫 페이지">«</button>
+      <button type="button" className={`${PILL} min-h-9 px-4 disabled:opacity-40`} disabled={page<=1} onClick={()=>setPage(page-1)}>이전</button>
+      {Array.from({length:Math.min(5,totalPages)},(_,i)=>Math.max(1,Math.min(page-2,totalPages-4))+i).map(n=><button key={n} type="button" aria-current={n===page?'page':undefined} onClick={()=>setPage(n)} className={`${n===page?PILL_ACTIVE:PILL} min-h-9 min-w-9 justify-center tabular-nums`}>{n}</button>)}
+      <button type="button" className={`${PILL} min-h-9 px-4 disabled:opacity-40`} disabled={page>=totalPages} onClick={()=>setPage(page+1)}>다음</button>
+      <button type="button" className={`${PILL} min-h-9 px-4 disabled:opacity-40`} disabled={page>=totalPages} onClick={()=>setPage(totalPages)} aria-label="마지막 페이지">»</button>
+      <span className="ml-2 text-xs tabular-nums text-subtle">{page} / {totalPages}</span>
+    </nav>}
   </section>
 }
