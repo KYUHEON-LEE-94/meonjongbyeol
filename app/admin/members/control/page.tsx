@@ -17,6 +17,7 @@ import {
 } from '@/lib/ui/styles'
 import AdminPageHeader from '../../_components/AdminPageHeader'
 import AdminStat from '../../_components/AdminStat'
+import MemberAccountsModal from './MemberAccountsModal'
 
 function Field({
                  label, hint, children,
@@ -111,6 +112,9 @@ export default function AdminMemberControlPage() {
   // 삭제 확인 모달
   const [deleteTarget, setDeleteTarget] = useState<MemberListItem | null>(null)
   const [confirmName, setConfirmName] = useState('')
+
+  // 라이엇 계정·스팀 관리 모달
+  const [accountsTarget, setAccountsTarget] = useState<MemberListItem | null>(null)
 
   const loadMembers = useCallback(async () => {
     try {
@@ -281,7 +285,9 @@ export default function AdminMemberControlPage() {
                 <div>
                   <h2 className={H2}>{editingId ? '멤버 정보 수정' : '새 멤버 등록'}</h2>
                   <p className="mt-1 text-xs leading-relaxed text-subtle">
-                    {editingId ? '기존 멤버의 라이엇 계정 정보를 변경합니다' : '관리자가 등록한 멤버는 즉시 승인 상태가 됩니다'}
+                    {editingId
+                        ? '대표 라이엇 계정과 이름을 변경합니다. 부계정과 스팀은 목록의 \'계정\' 버튼에서 관리하세요'
+                        : '관리자가 등록한 멤버는 즉시 승인 상태가 됩니다'}
                   </p>
                 </div>
                 <Field label="단톡방 아이디">
@@ -424,6 +430,13 @@ export default function AdminMemberControlPage() {
                           )}
                           <button
                               type="button"
+                              onClick={() => setAccountsTarget(m)}
+                              className={BTN_SM_GHOST}
+                          >
+                            계정
+                          </button>
+                          <button
+                              type="button"
                               onClick={() => handleEditStart(m)}
                               className={BTN_SM_GHOST}
                           >
@@ -444,6 +457,17 @@ export default function AdminMemberControlPage() {
             )}
           </div>
         </div>
+
+        {accountsTarget && (
+            <MemberAccountsModal
+                memberId={accountsTarget.id}
+                memberName={accountsTarget.member_name}
+                onClose={(changed) => {
+                  setAccountsTarget(null)
+                  if (changed) loadMembers()
+                }}
+            />
+        )}
 
         {/* ── 추방 확인 모달 ── */}
         {deleteTarget && (

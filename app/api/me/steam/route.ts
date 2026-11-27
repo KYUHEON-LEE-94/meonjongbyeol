@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
 import { createRouteClient } from '@/lib/supabase/route'
 import { supabaseService } from '@/lib/supabase/service'
 import { getDiscordId } from '@/lib/auth/discord'
-import { resolveSteamId } from '@/lib/steam/resolveSteamId'
-import { fetchPlayerSummaries } from '@/lib/steam/api'
-import { STEAM_VISIBILITY_PUBLIC, syncSteamMemberById } from '@/lib/sync/syncSteamMember'
+import { STEAM_VISIBILITY_PUBLIC } from '@/lib/sync/syncSteamMember'
+import { linkSteam, unlinkSteam } from '@/lib/members/steamLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,108 +132,18 @@ export async function POST(req: Request) {
       { status: 400 },
     )
   }
-  const member = lookup.member
 
-  const resolved = await resolveSteamId(body?.steam_input)
-  if (!resolved.ok) {
-    return NextResponse.json({ ok: false, message: resolved.message }, { status: resolved.status })
+  // 본인 경로만 user_id 를 묶는다(user_id 미연결 행을 본인에게 연결 — member 라우트와 동일 원칙).
+  const result = await linkSteam(lookup.member.id, body?.steam_input, { bindUserId: user.id })
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, message: result.message }, { status: result.status })
   }
-  const steamId64 = resolved.steamId64
-
-  // 소유권 증명을 하지 않으므로 선점만 막는다. 유니크 인덱스와 이중 방어.
-  const { data: taken, error: takenError } = await supabaseService
-    .schema('public')
-    .from('members')
-    .select('id')
-    .eq('steam_id64', steamId64)
-    .neq('id', member.id)
-    .maybeSingle()
-
-  if (takenError) {
-    return NextResponse.json({ ok: false, message: takenError.message }, { status: 500 })
-  }
-  if (taken) {
-    return NextResponse.json(
-      { ok: false, message: '이미 다른 멤버가 등록한 스팀 계정입니다.' },
-      { status: 409 },
-    )
-  }
-
-  let persona: string | null = null
-  let avatar: string | null = null
-  let visibility: number | null = null
-  try {
-    const [summary] = await fetchPlayerSummaries([steamId64])
-    if (!summary) {
-      return NextResponse.json(
-        { ok: false, message: '스팀에서 해당 계정을 찾을 수 없습니다.' },
-        { status: 400 },
-      )
-    }
-    persona = summary.personaname || null
-    avatar = summary.avatarfull || null
-    visibility = summary.communityvisibilitystate
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, message: e instanceof Error ? e.message : '스팀 조회에 실패했습니다.' },
-      { status: 502 },
-    )
-  }
-
-  const { error: updateError } = await supabaseService
-    .schema('public')
-    .from('members')
-    .update({
-      steam_id64: steamId64,
-      steam_persona: persona,
-      steam_avatar_url: avatar,
-      steam_visibility: visibility,
-      steam_linked_at: new Date().toISOString(),
-      steam_sync_error: null,
-      // user_id 미연결 행을 여기서 본인에게 묶는다 (member 라우트와 동일 원칙).
-      user_id: user.id,
-    })
-    .eq('id', member.id)
-
-  if (updateError) {
-    // 유니크 인덱스 위반은 경합으로 뚫린 선점이므로 409 로 변환한다.
-    const conflict = updateError.code === '23505'
-    return NextResponse.json(
-      {
-        ok: false,
-        message: conflict ? '이미 다른 멤버가 등록한 스팀 계정입니다.' : updateError.message,
-      },
-      { status: conflict ? 409 : 400 },
-    )
-  }
-
-  // 등록 직후 본인 1명만 온디맨드 동기화. 실패해도 등록 자체는 유지한다.
-  let syncWarning: string | null = null
-  try {
-    const result = await syncSteamMemberById(member.id)
-    if (result && !result.ok) syncWarning = result.message
-  } catch (e) {
-    syncWarning = e instanceof Error ? e.message : '동기화에 실패했습니다.'
-  }
-
-  revalidatePath('/steam')
-  revalidatePath('/profile')
-
-  const isPrivate = visibility !== STEAM_VISIBILITY_PUBLIC
 
   return NextResponse.json({
     ok: true,
-    steam: {
-      steam_id64: steamId64,
-      steam_persona: persona,
-      steam_avatar_url: avatar,
-      steam_visibility: visibility,
-      is_private: isPrivate,
-    },
-    syncWarning,
-    message: isPrivate
-      ? '스팀 계정을 연결했습니다. 프로필이 비공개라 게임 데이터는 표시되지 않습니다.'
-      : '스팀 계정을 연결했습니다.',
+    steam: result.steam,
+    syncWarning: result.syncWarning,
+    message: result.message,
   })
 }
 
@@ -253,36 +161,9 @@ export async function DELETE() {
     return NextResponse.json({ ok: false, message: '멤버 정보가 없습니다.' }, { status: 404 })
   }
 
-  const { error: gamesError } = await supabaseService
-    .schema('public')
-    .from('steam_owned_games')
-    .delete()
-    .eq('member_id', lookup.member.id)
-
-  if (gamesError) {
-    return NextResponse.json({ ok: false, message: gamesError.message }, { status: 500 })
+  const result = await unlinkSteam(lookup.member.id)
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, message: result.message }, { status: result.status })
   }
-
-  const { error } = await supabaseService
-    .schema('public')
-    .from('members')
-    .update({
-      steam_id64: null,
-      steam_persona: null,
-      steam_avatar_url: null,
-      steam_visibility: null,
-      steam_linked_at: null,
-      steam_synced_at: null,
-      steam_sync_error: null,
-    })
-    .eq('id', lookup.member.id)
-
-  if (error) {
-    return NextResponse.json({ ok: false, message: error.message }, { status: 400 })
-  }
-
-  revalidatePath('/steam')
-  revalidatePath('/profile')
-
-  return NextResponse.json({ ok: true, message: '스팀 연결을 해제했습니다.' })
+  return NextResponse.json({ ok: true, message: result.message })
 }

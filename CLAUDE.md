@@ -111,6 +111,9 @@ app/
       members/                  # 멤버 CRUD API (route=목록, create/update/[id])
         [id]/approve/route.ts   # 승인 + 즉시 동기화
         [id]/reject/route.ts    # 거절 + 사유
+        [id]/accounts/route.ts  # GET 상세: 라이엇 계정 1~3개 + 스팀 연결 상태(puuid 비노출)
+        [id]/riot-accounts/     # POST 추가 / [accountId] PATCH·DELETE / [accountId]/primary POST
+        [id]/steam/route.ts     # POST 등록·변경 / DELETE 해제 — ⚠ user_id 를 절대 묶지 않는다
       profile-frames/           # 프레임 업로드·삭제 API
     profile/                    # 프로필 이미지·프레임 저장 API (service role 경유)
 
@@ -129,7 +132,7 @@ lib/
   steam/                        # ⚠ 전부 `import 'server-only'` — STEAM_API_KEY 클라이언트 노출 금지
     api.ts                      # Steam Web API (GetPlayerSummaries / GetOwnedGames / ResolveVanityURL)
     presence.ts                 # "지금 접속 중" 조회 + 모듈 스코프 TTL 캐시 (STEAM_PRESENCE_TTL_MS)
-    resolveSteamId.ts           # 입력 4형태 → SteamID64 정규화
+    resolveSteamId.ts           # 입력 5형태(ID64·/profiles·/id·친구 코드·vanity) → SteamID64 정규화
     appDetails.ts               # store appdetails(비공식)로 멀티플레이 판정
     storeSearch.ts              # store storesearch(비공식)로 전체 카탈로그 검색. 키 불필요, 타임아웃·캐시 내장
   push/                         # 웹 푸시(VAPID)
@@ -147,6 +150,9 @@ lib/
   members/
     memberInput.ts              # 멤버 입력 화이트리스트 파서 + 길이/포맷 검증 상수 (+ parseRiotAccountInput)
     primaryAccount.ts           # ★ 대표 계정 파생 + members 캐시 미러링 단일 지점 + 재승인 정책 상수
+    riotAccountOps.ts           # 라이엇 계정 추가/수정/삭제/대표지정 공용 로직(사용자·관리자 라우트 공유, actor 'self'|'admin')
+    steamLink.ts                # 스팀 연결/해제 공용 로직. bindUserId 는 사용자 본인 경로에서만 넘긴다
+    adminMemberOps.ts           # 관리자 계정 라우트 공용: requireAdmin+멤버 조회, 대표 변경 후 즉시 동기화, 감사 로그
     myMember.ts                 # 세션 → 내 members 행 해석 (body의 member 식별자 불신)
     steamViewer.ts              # 개인화 스팀 섹션의 요청자 상태 해석 (approved/스팀등록/공개 여부)
   ui/
@@ -558,8 +564,9 @@ URL 쿼리 파라미터(`?api_key=`)로 전송하지 않는다 — 서버 로그
 | 대표 계정의 Riot ID **문자열** 수정 | `REQUIRE_REAPPROVAL_ON_RIOT_ID_CHANGE = true` → **pending 복귀** |
 | 대표 계정 **전환**(다른 계정을 대표로) | `REQUIRE_REAPPROVAL_ON_PRIMARY_SWITCH = false` → **불변**(운영 결정) |
 | 대표 계정 삭제(파생 대표 교체) | 위 상수를 공유 |
+| **관리자**가 `/admin/members/control` '계정' 모달에서 한 모든 조작 | **불변** — 대신 대표가 바뀌면 즉시 동기화(rejected 제외) + `sync_logs` manual |
 
-두 상수 모두 `lib/members/primaryAccount.ts`에 있다. 정책 반전은 상수 1개 변경으로 끝난다.
+두 상수 모두 `lib/members/primaryAccount.ts`에 있다. 재승인은 `lib/members/riotAccountOps.ts`가 `actor==='self'`일 때만 적용한다. 정책 반전은 상수 1개 변경으로 끝난다.
 `PRIMARY_SWITCH`를 `true`로 올리면 "부계정 추가 → 대표 전환"으로 심사를 우회하는 경로가 닫힌다.
 **pending 복귀는 반드시 캐시 갱신과 짝으로 수행한다** — 옛 값을 남기면 승인 순간 "심사한 계정 ≠ 표시되는 값"이 된다.
 
@@ -880,6 +887,10 @@ https + `cdn.discordapp.com`만 통과시킨다. 저장(`getDiscordAvatarUrl`)�
 ## 관리자 기능
 
 - `/admin/members/control` — 멤버 CRUD + 승인/거절/추방, 로그인 연결 현황 (Riot ID 수정 시 자동 재동기화)
+  - 행의 **'계정'** 버튼 → `MemberAccountsModal`: 라이엇 계정(1~3) 추가·수정·삭제·대표 지정 + 스팀 등록·변경·해제.
+    쓰기 로직은 사용자 라우트와 같은 `riotAccountOps.ts`/`steamLink.ts`를 쓴다. status 불변, 대표 변경 시 즉시 동기화.
+    **관리자 스팀 경로는 `user_id`를 묶지 않는다**(사용자 경로만 `bindUserId: user.id`). 감사 로그는 `console.info('[admin-audit]')`(ID 원문 미기록).
+    스팀 ID를 다른 계정으로 바꾸면 기존 `steam_owned_games`를 지우고 `steam_synced_at`을 null 로 만든 뒤 재동기화한다(사용자 경로 공통).
 - `/admin/members/sync` — 개별/전체 동기화, 동기화 현황 테이블
 - `/admin/profile-frames` — 프레임 이미지 업로드·삭제
 
@@ -912,6 +923,8 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
   - 두 경계를 한 라우트에 섞지 않는다. 섞는 순간 "이 파일이 외부를 부르는가"를 경로로 판별할 수 없게 된다.
 - **`STEAM_API_KEY`는 서버 전용.** Steam Web API는 헤더 인증을 지원하지 않아 키를 쿼리 파라미터로 보내므로,
   `lib/steam/*`는 전부 `import 'server-only'`이고 에러 메시지·로그에 URL을 절대 싣지 않는다.
+- 스팀 입력의 **친구 코드**(숫자 1~10자리, 1~2^32-1)는 `76561197960265728 + n`(BigInt — tsconfig ES2017이라 리터럴 `n` 금지)으로
+  SteamID64 로 변환한다. 10자리 이하 숫자는 vanity 보다 친구 코드로 우선 해석한다(예: 1123869352 → 76561199084135080).
 - 스팀 계정은 **소유권을 증명하지 않는다**(사용자 입력). `members_steam_id64_uidx` 유니크로 선점만 막고 중복 시 409.
 - 스팀 멀티플레이 판정은 `store.steampowered.com/api/appdetails`(**비공식**) 기반이라
   실패해도 전체 동기화를 깨뜨리지 않고 `is_multiplayer=null`("분류 미확인")로 남긴다.
@@ -950,3 +963,4 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
 | 2026-11-25 | 디자인 리뉴얼(보라 다크) | globals.css, styles.ts, AppShell·nav/*, HeroBanner, 전 페이지 | Unity Dashboard 톤, PC 사이드바, 캐릭터 히어로 배너. 로직·API·DB 무변경 |
 | 2026-11-27 | 내전 라이브 MVP | `useCustomGamesRealtime`·`useGamePresence`·`HomeRecruitingGames`, `custom-games` 목록·상세, `20260912_custom_game_realtime.sql` | Realtime 재조회 트리거 · 번개(파생) · Presence 시청자 수. 컬럼 추가 없음 |
 | 2026-11-27 | 롤 협곡 포지션 선점 | `lol-teams/claim`, `lolSlots.ts`, `LolClaimBoard`, `useGamePresence` broadcast, `20260913_custom_game_lol_slot_claim.sql` | 확정 참가자 본인 슬롯 선점·관리자 저장 낙관적 동시성. 컬럼 추가 없음 |
+| 2026-11-28 | 관리자 계정 관리 | `MemberAccountsModal`, `/api/admin/members/[id]/{accounts,riot-accounts,steam}`, `lib/members/{riotAccountOps,steamLink,adminMemberOps}.ts`, `resolveSteamId` | 관리자가 멤버의 라이엇 계정·스팀 ID 조회/수정. 사용자 라우트와 로직 공유, 스팀 친구 코드 입력 지원 |

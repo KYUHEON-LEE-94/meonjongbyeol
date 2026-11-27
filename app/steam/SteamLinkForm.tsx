@@ -215,11 +215,11 @@ function CardSteamLinkForm() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className={inputCls}
-            placeholder="https://steamcommunity.com/id/myname 또는 76561198000000000"
+            placeholder="steamcommunity.com/id/myname · 76561198000000000 · 친구 코드"
             required
           />
           <p className="text-[11px] text-faint">
-            프로필 주소(/id/… 또는 /profiles/…), SteamID64, 사용자 이름 모두 인식합니다.
+            프로필 주소(/id/… 또는 /profiles/…), SteamID64, 친구 코드(숫자), 사용자 이름 모두 인식합니다.
           </p>
           <button
             type="submit"
