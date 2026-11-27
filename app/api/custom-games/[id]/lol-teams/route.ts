@@ -170,7 +170,8 @@ export async function POST(req: Request, ctx: Ctx) {
     })
   } else {
     // ── 수동 배정 검증 ────────────────────────────────────────────
-    if (!Array.isArray(body.assignments) || body.assignments.length === 0) {
+    // 빈 배열 허용 = 전원 배치 해제 후 저장(슬롯 비우기). replace RPC 는 0행 insert 로 처리한다.
+    if (!Array.isArray(body.assignments)) {
       return NextResponse.json({ error: '팀 배정 정보가 없습니다' }, { status: 400 })
     }
     // 정규화: guest_name 은 trim 후 빈문자면 없는 것으로 취급.
@@ -310,6 +311,7 @@ type TeamRowInput = {
  */
 async function legacyReplace(gameId: string, rows: TeamRowInput[], finalAssignments: LolAssignment[]) {
   await supabaseAdmin.from('custom_game_teams').delete().eq('custom_game_id', gameId)
+  if (rows.length === 0) return NextResponse.json({ ok: true, assignments: finalAssignments })
 
   const inserts = rows.map((r) => ({
     custom_game_id: gameId,

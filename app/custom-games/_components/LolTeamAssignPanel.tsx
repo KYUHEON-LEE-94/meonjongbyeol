@@ -124,10 +124,12 @@ function DraggableCard({
   card,
   disabled,
   onRemove,
+  removeLabel,
 }: {
   card: Card
   disabled: boolean
   onRemove?: () => void
+  removeLabel?: string
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: cardDragId(card),
@@ -159,7 +161,8 @@ function DraggableCard({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={card.kind === 'guest' ? '외부인 삭제' : '명단에서 제외'}
+          aria-label={removeLabel ?? (card.kind === 'guest' ? '외부인 삭제' : '명단에서 제외')}
+          title={removeLabel}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:bg-danger/10 hover:text-danger-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round">
@@ -177,12 +180,14 @@ function Slot({
   card,
   disabled,
   teamStyle,
+  onUnassign,
 }: {
   id: string
   label: string
   card: Card | null
   disabled: boolean
   teamStyle: (typeof TEAM_STYLES)[number]
+  onUnassign: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled })
   return (
@@ -195,7 +200,8 @@ function Slot({
         } ${card ? '' : 'flex items-center border border-dashed border-line-strong px-3'}`}
       >
         {card ? (
-          <DraggableCard card={card} disabled={disabled} />
+          // 슬롯의 × = 배치 해제(명단 · 미배치로 되돌림). 추방·삭제가 아니다 — 모바일에서 풀까지 끌 필요가 없게.
+          <DraggableCard card={card} disabled={disabled} onRemove={onUnassign} removeLabel={`${label} 배치 빼기`} />
         ) : (
           <span className="text-xs text-subtle">여기로 드래그</span>
         )}
@@ -232,6 +238,7 @@ export default function LolTeamAssignPanel({
   canManage,
   isClosed,
   validationError,
+  hasSavedTeams = false,
 }: {
   participants: LolParticipant[]
   guests: LolGuestCard[]
@@ -246,6 +253,8 @@ export default function LolTeamAssignPanel({
   canManage: boolean
   isClosed: boolean
   validationError: string | null
+  /** 저장된 배정이 있으면 전원 빼고 저장(비우기)도 허용한다 */
+  hasSavedTeams?: boolean
 }) {
   const isRift = mode === 'rift'
   const [guestInput, setGuestInput] = useState('')
@@ -310,6 +319,12 @@ export default function LolTeamAssignPanel({
     onChange(next)
   }
 
+  const unassign = (teamIdx: number, slotIdx: number) => {
+    const next: LolTeamDraft = [[...draft[0]], [...draft[1]]]
+    next[teamIdx][slotIdx] = null
+    onChange(next)
+  }
+
   const addGuest = () => {
     const name = guestInput.trim().slice(0, GUEST_NAME_MAX)
     if (!name) return
@@ -334,7 +349,7 @@ export default function LolTeamAssignPanel({
             </span>
           </div>
           <p className="mt-1 text-xs text-muted">
-            명단 카드를 끌어 {isRift ? '포지션별로' : '각 팀에'} 배치하세요 · 저장 버튼으로 확정됩니다
+            명단 카드를 끌어 {isRift ? '포지션별로' : '각 팀에'} 배치하세요 · 슬롯의 ×로 다시 미배치로 뺄 수 있어요 · 저장 버튼으로 확정됩니다
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -351,7 +366,7 @@ export default function LolTeamAssignPanel({
             <button
               type="button"
               onClick={onSave}
-              disabled={saving || filledCount === 0}
+              disabled={saving || (filledCount === 0 && !hasSavedTeams)}
               className={BTN_PRIMARY}
             >
               {saving ? <Spinner size={3} /> : null}
@@ -401,7 +416,7 @@ export default function LolTeamAssignPanel({
           </div>
           <Pool disabled={saving}>
             {poolCount === 0 ? (
-              <p className="py-1 text-xs text-subtle">모든 인원이 배치되었습니다. 슬롯 카드를 여기로 끌면 배치가 해제됩니다.</p>
+              <p className="py-1 text-xs text-subtle">모든 인원이 배치되었습니다. 슬롯의 × 를 누르거나 카드를 여기로 끌면 배치가 해제됩니다.</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {poolMembers.map((p) => (
@@ -455,6 +470,7 @@ export default function LolTeamAssignPanel({
                         card={card}
                         disabled={saving}
                         teamStyle={ts}
+                        onUnassign={() => unassign(teamIdx, slotIdx)}
                       />
                     )
                   })}

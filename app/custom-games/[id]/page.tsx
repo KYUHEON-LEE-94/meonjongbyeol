@@ -1290,6 +1290,7 @@ export default function CustomGameDetailPage() {
                         canManage={canManage}
                         isClosed={isClosed}
                         validationError={lolTeamError}
+                        hasSavedTeams={lolTeams.length > 0}
                       />
                     ) : isRift && !isClosed && (canClaimSlot || lolTeams.length > 0) ? (
                       <LolClaimBoard
