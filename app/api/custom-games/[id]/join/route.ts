@@ -127,5 +127,15 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: '참가 신청 내역이 없습니다' }, { status: 404 })
   }
 
+  // 취소한 사람의 롤 슬롯도 비운다. 실패해도 표시 필터(확정 집합 밖 숨김)가 실제 방어선이라 경고만 남긴다.
+  const { error: slotError } = await supabaseAdmin
+    .from('custom_game_teams')
+    .delete()
+    .eq('custom_game_id', id)
+    .eq('member_id', viewer.member.id)
+  if (slotError) {
+    console.warn('[custom-games] 취소 후 슬롯 정리 실패', { gameId: id, message: slotError.message })
+  }
+
   return NextResponse.json({ ok: true })
 }

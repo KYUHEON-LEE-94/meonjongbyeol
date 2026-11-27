@@ -53,6 +53,17 @@ export const LOL_MIGRATION_REQUIRED_MESSAGE =
   '롤 내전 기능이 아직 활성화되지 않았습니다. 관리자에게 문의해주세요. ' +
   '(scripts/sql/20260731_custom_game_lol.sql · 20260732_custom_game_lol_guest.sql 미적용)'
 
+export const LOL_SLOT_MIGRATION_REQUIRED_MESSAGE =
+  '포지션 선점 기능이 아직 활성화되지 않았습니다. 관리자에게 문의해주세요. ' +
+  '(scripts/sql/20260913_custom_game_lol_slot_claim.sql 미적용)'
+
+export function lolSlotMigrationRequiredResponse(): NextResponse {
+  return NextResponse.json(
+    { error: LOL_SLOT_MIGRATION_REQUIRED_MESSAGE, migration_required: true },
+    { status: 503 },
+  )
+}
+
 export function migrationRequiredResponse(): NextResponse {
   return NextResponse.json(
     { error: MIGRATION_REQUIRED_MESSAGE, migration_required: true },

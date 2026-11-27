@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { supabaseClient } from '@/lib/supabase'
 
@@ -38,11 +38,14 @@ export function useCustomGamesRealtime(
   target: RealtimeTarget,
   onTrigger: () => void | Promise<void>,
   opts?: { enabled?: boolean },
-): { status: RealtimeStatus } {
+): { status: RealtimeStatus; trigger: () => void } {
   const enabled = opts?.enabled ?? true
   const [status, setStatus] = useState<RealtimeStatus>('connecting')
   const onTriggerRef = useRef(onTrigger)
   useEffect(() => { onTriggerRef.current = onTrigger })
+  // 외부 신호(Presence broadcast 등)도 같은 디바운스·hidden 보류·실행 중 합치기를 타도록 노출한다.
+  const scheduleRef = useRef<(() => void) | null>(null)
+  const trigger = useCallback(() => { scheduleRef.current?.() }, [])
 
   const scope = target.scope
   const gameId = target.scope === 'game' ? target.gameId : null
@@ -89,6 +92,8 @@ export function useCustomGamesRealtime(
         void run()
       }, DEBOUNCE_MS + Math.floor(Math.random() * JITTER_MS))
     }
+
+    scheduleRef.current = schedule
 
     const onVisible = () => {
       if (!document.hidden && pendingHidden) {
@@ -162,6 +167,7 @@ export function useCustomGamesRealtime(
 
     return () => {
       disposed = true
+      if (scheduleRef.current === schedule) scheduleRef.current = null
       if (timer) clearTimeout(timer)
       if (timeoutTimer) clearTimeout(timeoutTimer)
       document.removeEventListener('visibilitychange', onVisible)
@@ -171,5 +177,5 @@ export function useCustomGamesRealtime(
     }
   }, [enabled, scope, gameId])
 
-  return { status }
+  return { status, trigger }
 }

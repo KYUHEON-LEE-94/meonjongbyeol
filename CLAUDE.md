@@ -74,6 +74,7 @@ app/
     _components/useGamePresence.ts  # Presence "지금 N명이 보는 중" (고정 topic + leaving Map)
     _components/useNow.ts       # 마운트 후 now tick (하이드레이션 안전)
     _components/LiveToast.tsx · QuickLiveBadge.tsx · SeatBar.tsx  # 라이브 토스트 / 번개 LIVE·만료 배지 / 인원 바
+    _components/LolClaimBoard.tsx  # 협곡 비관리자 본인 포지션 선점 보드 (Client)
   login/                        # 사용자 로그인 (Discord OAuth 버튼)
   auth/callback/route.ts        # OAuth 코드 교환 + discord_id ↔ user_id 연결
   profile/                      # 프로필 이미지·프레임 편집 + 라이엇 ID 자가 등록
@@ -682,6 +683,7 @@ rounds/teams/guests API 와 `rejectNonTftGame`은 삭제됐다(→ 404). 상세 
 ```
 생성   POST /api/custom-games            로그인 + members.status='approved' (관리자 여부 무관)
 참가   POST|DELETE /[id]/join            로그인 + approved. 주최자는 취소 불가(삭제로 유도)
+선점   POST|DELETE /[id]/lol-teams/claim  로그인 + approved + 확정 참가자 본인(세션). 협곡·모집 중만
 관리   PATCH|DELETE /[id], /[id]/end,
       /[id]/lol-teams,
       /[id]/participants/[pid]           canManageGame() = 관리자 OR 주최자 본인
@@ -725,6 +727,24 @@ rounds/teams/guests API 와 `rejectNonTftGame`은 삭제됐다(→ 404). 상세 
 - LIVE/만료는 표시 파생뿐(`quickGameState`) — status UPDATE 없음. 정원이 차면 만료 대신 기존 '마감'.
 - 번개 생성 시 `reminder_sent_at`을 선점(에러 무시)해 30분 디스코드 임박 알림 중복을 막는다. `push_reminder_sent_at`은 건드리지 않는다.
 - 트레이드오프: 일반 폼으로 30분 이내 일정도 번개로 표시되고, 일정 수정 시 분류가 바뀐다(수용).
+
+### 롤 협곡 포지션 선점 (본인 슬롯) ★
+
+마이그레이션: `scripts/sql/20260913_custom_game_lol_slot_claim.sql` (부분 유니크 `custom_game_teams_member_uniq` + RPC 3개). 새 컬럼·RLS·publication 변경 없음.
+
+- **확정 참가자 본인**이 `POST|DELETE /api/custom-games/[id]/lol-teams/claim`으로 팀(`team_index` **1|2**)·포지션을 선점/이동/해제한다.
+  대상 멤버는 세션(`getViewerMember`)에서만 해석 — body 의 member 식별자는 읽지 않는다. 로그인+approved, `lol_mode='rift'`, `status='recruiting'`만.
+- RPC `claim_lol_slot` / `release_lol_slot` / `replace_lol_teams`는 전부 `security definer` + **service_role 전용**(revoke from public, anon, authenticated).
+  같은 게임의 슬롯 쓰기는 `pg_advisory_xact_lock('lol_slots:'||game_id)`로 직렬화한다. `custom_games for update` 금지(참가 INSERT FK 와 충돌).
+- **확정 판정은 서버 TS 단일 지점** `lib/customGames/lolSlots.ts`의 `getConfirmedMemberIds()`(게스트 정원 포함) → RPC 에 `p_confirmed`로 전달.
+- **표시 필터 = replace 비교 필터.** 상세 GET·lol-teams GET 은 `round_number=1` + (외부인 또는 확정 멤버) 행만 반환(`filterConfirmedSlots`).
+  `replace_lol_teams`의 현재 행 필터도 같은 규칙이다 — 어긋나면 관리자 저장이 영구 409 가 된다. 한쪽만 바꾸지 말 것.
+- **관리자 저장 = 낙관적 동시성(새 컬럼 없음).** 클라가 로드 시점 `lol_teams`를 `expected`로 보내고(랜덤 포함, 미전송 400),
+  다르면 409 `{conflict:true}` → 페이지는 draft 를 덮지 않고 새로고침 배너. RPC 미적용이면 기존 delete+insert 폴백, claim 은 503.
+- 참가 취소·강퇴 성공 후 해당 멤버의 teams 행을 지운다(실패는 warn — 표시 필터가 실제 방어선).
+- **실시간:** `custom_game_teams`는 B 그룹이라 postgres_changes 불가 → Presence 채널(`custom-game:{id}`)의 broadcast `teams-changed`(payload `{ t }`)로 알린다.
+  수신은 `useCustomGamesRealtime().trigger` → 기존 디바운스·hidden 보류·R2·R3 재사용. 발신자는 self:false 라 직접 재조회. 위조 broadcast 는 재조회만 유발한다.
+- 상세 GET 은 `my_slot: { team_index, position } | null`을 준다. 비관리자 협곡 화면은 `LolClaimBoard`, 관리자는 기존 `LolTeamAssignPanel`.
 
 ### 대기열은 저장하지 않고 순번에서 파생한다 ★
 
@@ -929,3 +949,4 @@ EMERALD(5) > PLATINUM(6) > GOLD(7) > SILVER(8) > BRONZE(9) > IRON(10)
 | 2026-11-25 | 먼종별 리모델링 | 전체 (TFT·명예의 전당·시즌·주간 리포트 삭제, `lib/riot/*`, `lib/sync/doSyncMember.ts`, 홈·`/discord`·`SiteNav`) | 종겜방 '먼종별'로 리브랜딩, LoL 키 단일화(lol_puuid), 홈을 내전·스팀·디스코드 중심으로 재구성. DB DROP 없음 |
 | 2026-11-25 | 디자인 리뉴얼(보라 다크) | globals.css, styles.ts, AppShell·nav/*, HeroBanner, 전 페이지 | Unity Dashboard 톤, PC 사이드바, 캐릭터 히어로 배너. 로직·API·DB 무변경 |
 | 2026-11-27 | 내전 라이브 MVP | `useCustomGamesRealtime`·`useGamePresence`·`HomeRecruitingGames`, `custom-games` 목록·상세, `20260912_custom_game_realtime.sql` | Realtime 재조회 트리거 · 번개(파생) · Presence 시청자 수. 컬럼 추가 없음 |
+| 2026-11-27 | 롤 협곡 포지션 선점 | `lol-teams/claim`, `lolSlots.ts`, `LolClaimBoard`, `useGamePresence` broadcast, `20260913_custom_game_lol_slot_claim.sql` | 확정 참가자 본인 슬롯 선점·관리자 저장 낙관적 동시성. 컬럼 추가 없음 |

@@ -17,7 +17,8 @@ import LolTeamAssignPanel, {
   type LolSlot,
   type LolTeamDraft,
 } from '@/app/custom-games/_components/LolTeamAssignPanel'
-import { LOL_POSITIONS } from '@/lib/customGames/constants'
+import LolClaimBoard, { type ClaimBoardMember, type MySlot } from '@/app/custom-games/_components/LolClaimBoard'
+import { LOL_POSITIONS, type LolPosition } from '@/lib/customGames/constants'
 import { effectiveMemberCapacity } from '@/lib/customGames/waitlist'
 import {
   formatKstSchedule,
@@ -199,6 +200,9 @@ export default function CustomGameDetailPage() {
   const [lolPoolGuests, setLolPoolGuests] = useState<LolGuestCard[]>([])
   const [savingLolTeams, setSavingLolTeams] = useState(false)
   const [lolTeamError, setLolTeamError] = useState<string | null>(null)
+  // 비관리자 본인 슬롯 선점
+  const [mySlot, setMySlot] = useState<MySlot>(null)
+  const [claimingKey, setClaimingKey] = useState<string | null>(null)
 
   // 관리자 멤버 추가 상태 (다중 선택 → 한 번에 추가)
   const [showMemberAdd, setShowMemberAdd] = useState(false)
@@ -290,6 +294,7 @@ export default function CustomGameDetailPage() {
       setWaitlist(nextWaitlist)
       setGuests(body.guests ?? [])
       setLolTeams(body.lol_teams ?? [])
+      setMySlot(body.my_slot ?? null)
       setCanManage(Boolean(body.can_manage))
       setMyParticipation(body.my_participation ?? null)
       setMigrationRequired(Boolean(body.migration_required))
@@ -323,8 +328,10 @@ export default function CustomGameDetailPage() {
     }
     await loadDetail({ silent: true, live: true })
   }, [loadDetail])
-  useCustomGamesRealtime({ scope: 'game', gameId }, liveReload, { enabled: Boolean(gameId) })
-  const viewerCount = useGamePresence(gameId)
+  const { trigger: liveTrigger } = useCustomGamesRealtime({ scope: 'game', gameId }, liveReload, { enabled: Boolean(gameId) })
+  // 팀 슬롯 변경은 postgres_changes 로 받을 수 없어(B 그룹) Presence 채널 broadcast 로 알린다.
+  // 수신은 liveTrigger → 같은 디바운스·hidden 보류·R2(draft 보호)·R3(silent)를 그대로 탄다.
+  const { count: viewerCount, notifyTeamsChanged } = useGamePresence(gameId, { onTeamsChanged: liveTrigger })
 
   const applyPendingLive = async () => {
     lolDirtyRef.current = false
@@ -386,10 +393,8 @@ export default function CustomGameDetailPage() {
     ]
     lolTeams.forEach((t, i) => {
       // 슬롯은 확정 멤버(member_id) 또는 외부인 라벨(guest_name) 중 하나로 채워진다.
-      const m = t.member_id
-        ? confirmedList.find((p) => p.member_id === t.member_id)
-          ?? waitlist.find((p) => p.member_id === t.member_id)
-        : undefined
+      // 서버가 확정 집합 밖 멤버 행을 걸러 보내므로 확정 명단에서만 찾는다.
+      const m = t.member_id ? confirmedList.find((p) => p.member_id === t.member_id) : undefined
       const slotValue: LolSlot = t.member_id
         ? {
             kind: 'member',
@@ -416,7 +421,7 @@ export default function CustomGameDetailPage() {
     })
     setLolDraft(next)
     setLolTeamError(null)
-  }, [lolTeams, isLol, isRift, confirmedList, waitlist])
+  }, [lolTeams, isLol, isRift, confirmedList])
 
   // ── 데이터 계산 ───────────────────────────────────────────────────
 
@@ -553,6 +558,52 @@ export default function CustomGameDetailPage() {
   }
 
   // ── 롤 팀 배정 핸들러 ─────────────────────────────────────────────
+  // 낙관적 동시성: 로드 시점에 본 서버 배정을 그대로 돌려보낸다(guest_name 등 가공 금지).
+  const lolExpected = useMemo(
+    () => lolTeams.map((t) => ({
+      team_index: t.team_index,
+      member_id: t.member_id,
+      guest_name: t.guest_name,
+      position: t.position,
+    })),
+    [lolTeams],
+  )
+
+  // ── 비관리자 본인 슬롯 선점/해제 ─────────────────────────────────
+  const handleClaimSlot = async (teamIndex: 1 | 2, position: LolPosition) => {
+    if (claimingKey) return
+    setClaimingKey(`${teamIndex}-${position}`)
+    try {
+      const res = await fetch(`/api/custom-games/${gameId}/lol-teams/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_index: teamIndex, position }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        showMsg('error', body.error ?? '선점 실패')
+        if (res.status === 409) await loadDetail({ silent: true })
+        return
+      }
+      if (body.result !== 'noop') notifyTeamsChanged()
+      await loadDetail({ silent: true })
+    } catch { showMsg('error', '선점 중 오류가 발생했습니다') }
+    finally { setClaimingKey(null) }
+  }
+
+  const handleReleaseSlot = async () => {
+    if (claimingKey) return
+    setClaimingKey('release')
+    try {
+      const res = await fetch(`/api/custom-games/${gameId}/lol-teams/claim`, { method: 'DELETE' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { showMsg('error', body.error ?? '해제 실패'); return }
+      if (body.result === 'released') notifyTeamsChanged()
+      await loadDetail({ silent: true })
+    } catch { showMsg('error', '해제 중 오류가 발생했습니다') }
+    finally { setClaimingKey(null) }
+  }
+
   const handleSaveLolTeams = async () => {
     setSavingLolTeams(true)
     setLolTeamError(null)
@@ -572,13 +623,19 @@ export default function CustomGameDetailPage() {
       const res = await fetch(`/api/custom-games/${gameId}/lol-teams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignments }),
+        body: JSON.stringify({ assignments, expected: lolExpected }),
       })
       const body = await res.json()
-      if (!res.ok) { setLolTeamError(body.error ?? '저장 실패'); return }
+      if (!res.ok) {
+        setLolTeamError(body.error ?? '저장 실패')
+        // 그사이 누가 선점·변경했다 — draft 를 바로 덮지 않고 새로고침 배너로 알린다.
+        if (res.status === 409 && body.conflict) setPendingLive(true)
+        return
+      }
       showMsg('success', '팀 배정이 저장되었습니다')
       lolDirtyRef.current = false
       setPendingLive(false)
+      notifyTeamsChanged()
       await loadDetail()
     } catch { setLolTeamError('저장 중 오류가 발생했습니다') }
     finally { setSavingLolTeams(false) }
@@ -591,12 +648,17 @@ export default function CustomGameDetailPage() {
       const res = await fetch(`/api/custom-games/${gameId}/lol-teams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ random: true }),
+        body: JSON.stringify({ random: true, expected: lolExpected }),
       })
       const body = await res.json()
-      if (!res.ok) { setLolTeamError(body.error ?? '랜덤 배정 실패'); return }
+      if (!res.ok) {
+        setLolTeamError(body.error ?? '랜덤 배정 실패')
+        if (res.status === 409 && body.conflict) setPendingLive(true)
+        return
+      }
       lolDirtyRef.current = false
       setPendingLive(false)
+      notifyTeamsChanged()
       await loadDetail()
     } catch { setLolTeamError('랜덤 배정 중 오류가 발생했습니다') }
     finally { setSavingLolTeams(false) }
@@ -667,6 +729,15 @@ export default function CustomGameDetailPage() {
 
   // 롤 내전 관리자 화면은 팀 배정 패널의 미배치 풀이 명단 역할을 하므로 참가자 카드를 생략한다.
   const showLolPanel = isLol && canManage && !isClosed
+
+  // 협곡 비관리자 선점 가능 = 확정 참가자 + 모집 중(예정 시각 전). 서버가 status·확정 여부를 최종 판정한다.
+  const canClaimSlot = Boolean(isRift && !canManage && myParticipation?.confirmed && isRecruiting)
+  const claimMembers = useMemo(
+    () => new Map<string, ClaimBoardMember>(
+      confirmedList.map((p) => [p.member_id, { name: p.member_name, avatarUrl: p.avatar_url ?? null }]),
+    ),
+    [confirmedList],
+  )
 
   const renderParticipantRow = (p: MemberParticipant, tone: 'confirmed' | 'waitlist') => (
     <li
@@ -1220,6 +1291,16 @@ export default function CustomGameDetailPage() {
                         isClosed={isClosed}
                         validationError={lolTeamError}
                       />
+                    ) : isRift && !isClosed && (canClaimSlot || lolTeams.length > 0) ? (
+                      <LolClaimBoard
+                        teams={lolTeams}
+                        members={claimMembers}
+                        mySlot={mySlot}
+                        canClaim={canClaimSlot}
+                        busyKey={claimingKey}
+                        onClaim={handleClaimSlot}
+                        onRelease={handleReleaseSlot}
+                      />
                     ) : (
                       // 관리 권한이 없거나 종료된 내전은 읽기 전용 팀 구성만 보여준다.
                       lolTeams.length > 0 && (
@@ -1247,7 +1328,6 @@ export default function CustomGameDetailPage() {
                                     {rows.map((t, i) => {
                                       const teamMember = t.member_id
                                         ? confirmedList.find((p) => p.member_id === t.member_id)
-                                          ?? waitlist.find((p) => p.member_id === t.member_id)
                                         : undefined
                                       const name = t.member_id
                                         ? teamMember?.member_name ?? '알 수 없음'

@@ -44,5 +44,16 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     .eq('custom_game_id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 강퇴된 사람의 롤 슬롯도 비운다. 실패해도 표시 필터(확정 집합 밖 숨김)가 실제 방어선이라 경고만 남긴다.
+  const { error: slotError } = await supabaseAdmin
+    .from('custom_game_teams')
+    .delete()
+    .eq('custom_game_id', id)
+    .eq('member_id', participant.member_id)
+  if (slotError) {
+    console.warn('[custom-games] 강퇴 후 슬롯 정리 실패', { gameId: id, message: slotError.message })
+  }
+
   return NextResponse.json({ ok: true })
 }

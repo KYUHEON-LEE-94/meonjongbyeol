@@ -15,6 +15,7 @@ import {
   participationPosition,
   splitParticipants,
 } from '@/lib/customGames/waitlist'
+import { LOL_ROUND, filterConfirmedSlots } from '@/lib/customGames/lolSlots'
 import {
   parseCapacity,
   parseGameKind,
@@ -128,6 +129,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       .from('custom_game_teams')
       .select('team_index, member_id, guest_id, guest_name, position')
       .eq('custom_game_id', id)
+      .eq('round_number', LOL_ROUND)
       .order('team_index')
     if (withPosition.error) {
       // 20260731(position)/20260732(guest_name) 미적용 → 없이 재조회해 degrade.
@@ -136,13 +138,19 @@ export async function GET(_req: Request, ctx: Ctx) {
           .from('custom_game_teams')
           .select('team_index, member_id, guest_id')
           .eq('custom_game_id', id)
+          .eq('round_number', LOL_ROUND)
           .order('team_index')
         lolTeams = (legacyRows ?? []).map((t) => ({ ...t, position: null, guest_name: null }))
       }
     } else {
       lolTeams = withPosition.data ?? []
     }
+    // ★ 표시 필터 = replace_lol_teams 비교 필터(round 1 + 외부인 또는 확정 멤버).
+    //   대기로 밀린 멤버의 잔존 행을 숨긴다 — 둘이 어긋나면 관리자 저장이 영구 409 가 된다.
+    lolTeams = filterConfirmedSlots(lolTeams, new Set(confirmed.map((p) => p.member_id)))
   }
+
+  const mySlotRow = viewerMemberId ? lolTeams.find((t) => t.member_id === viewerMemberId) : undefined
 
   const mine = viewerMemberId
     ? participants.find((p) => p.member_id === viewerMemberId) ?? null
@@ -160,6 +168,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     waitlist: waitlistParticipants,
     guests,
     lol_teams: lolTeams,
+    my_slot: mySlotRow ? { team_index: mySlotRow.team_index, position: mySlotRow.position } : null,
     can_manage: canManageGame(game, viewerMemberId, viewer?.isAdmin ?? false),
     my_participation: mine
       ? {
