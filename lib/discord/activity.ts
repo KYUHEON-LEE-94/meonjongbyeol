@@ -2,7 +2,7 @@ import 'server-only'
 
 import { getKstDateRange, parseDiscordActivitySummary, type DiscordActivityPeriod, type ParsedDiscordActivitySummary } from './activityHelpers'
 
-const DEFAULT_API_BASE_URL = 'https://tactician-discord-bot.up.railway.app'
+const DEFAULT_API_BASE_URL = 'https://tactician-discord-bot-mwonjonggem.up.railway.app'
 const REQUEST_TIMEOUT_MS = 5_000
 const CACHE_SECONDS = 300
 
